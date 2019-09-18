@@ -7,7 +7,6 @@ from skimage import segmentation
 from skimage.measure import regionprops
 
 # make sure these folders exist
-input = './data/'
 output = './data/train/'
 image_sets = ['top_mosaic_09cm_area26.tif']
 
@@ -116,13 +115,13 @@ def create_multiscale_roi(img, seg, props, row, col):
     return sub_img_0, sub_img_1, sub_img_2
 
 
-def creat_dataset(num_sample=1000):
+def creat_dataset(num_sample=2000):
     print('creating dataset...')
     count = 0
     for i in range(len(image_sets)):
         # load image and label (both in 3 channels)
-        src_img = cv2.imread(input + 'src/' + image_sets[i])
-        label_img = cv2.imread(input + 'label/' + image_sets[i])
+        src_img = cv2.imread('./data/src/' + image_sets[i])
+        label_img = cv2.imread('./data/label/' + image_sets[i])
         row, col, _ = src_img.shape
 
         # slic superpixels segmentation

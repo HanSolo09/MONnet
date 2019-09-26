@@ -1,5 +1,3 @@
-import os
-import random
 import cv2
 import numpy as np
 import pandas
@@ -9,8 +7,10 @@ import keras
 from keras.preprocessing.image import img_to_array
 from keras.utils.np_utils import to_categorical
 from keras.callbacks import ModelCheckpoint
+from keras.initializers import glorot_uniform
 from keras import initializers
-from keras.layers import Dense, Conv2D, BatchNormalization, Activation, concatenate, Reshape, Input
+from keras.layers import Dense, Conv2D, BatchNormalization, Activation, concatenate, Flatten, Input, AveragePooling2D, \
+    Reshape
 from keras.regularizers import l2
 from keras.models import Model
 from keras.optimizers import Adam
@@ -21,15 +21,14 @@ filepath = './data/train/'
 lookup = []
 
 n_channel = 3
-img_w0 = 16
-img_h0 = 16
-img_w1 = 32
-img_h1 = 32
-img_w2 = 64
-img_h2 = 64
+img_w0 = 24
+img_h0 = 24
+img_w1 = 48
+img_h1 = 48
+img_w2 = 72
+img_h2 = 72
 
 LOSS = 'categorical_crossentropy'
-VALIDATION_RATE = 0.1
 
 
 def load_img(path):
@@ -39,20 +38,14 @@ def load_img(path):
     return img
 
 
-def get_train_val(val_rate=VALIDATION_RATE):
-    train_url = []
-    train_set = []
-    val_set = []
-    for pic in os.listdir(filepath + '0'):
-        train_url.append(pic)
-    random.shuffle(train_url)
-    total_num = len(train_url)
-    val_num = int(val_rate * total_num)
-    for i in range(len(train_url)):
-        if i < val_num:
-            val_set.append(train_url[i])
-        else:
-            train_set.append(train_url[i])
+def get_train_val():
+    temp = pandas.read_csv(filepath + 'train_list.csv', names=['train_list'])
+    train_set = temp.train_list.tolist()
+    train_set.pop(0)
+    temp2 = pandas.read_csv(filepath + 'validation_list.csv', names=['validation_list'])
+    val_set = temp2.validation_list.tolist()
+    val_set.pop(0)
+
     return train_set, val_set
 
 
@@ -124,7 +117,7 @@ def resnet_layer(inputs,
                   kernel_size=kernel_size,
                   strides=strides,
                   padding='same',
-                  kernel_initializer='he_normal',
+                  kernel_initializer=glorot_uniform(seed=0),
                   kernel_regularizer=l2(1e-4))
 
     x = inputs
@@ -143,9 +136,42 @@ def resnet_layer(inputs,
     return x
 
 
+def res_block(inputs,
+              num_filters):
+    x = resnet_layer(inputs=inputs,
+                     num_filters=num_filters)
+    x = resnet_layer(inputs=x,
+                     num_filters=num_filters,
+                     activation=None)
+    x = keras.layers.add([inputs, x])
+    x = Activation('relu')(x)
+
+    return x
+
+
+def conv_block(inputs,
+               num_filters,
+               strides=2):
+    x = resnet_layer(inputs=inputs,
+                     strides=strides,
+                     num_filters=num_filters)
+    y = resnet_layer(inputs=x,
+                     num_filters=num_filters,
+                     activation=None)
+    x = resnet_layer(inputs=inputs,
+                     num_filters=num_filters,
+                     kernel_size=1,
+                     strides=strides,
+                     activation=None,
+                     batch_normalization=False)
+    x = keras.layers.add([x, y])
+    x = Activation('relu')(x)
+
+    return x
+
+
 def multiscale_resnet_v1(inputs, scale, depth=20, num_classes=6):
     """ResNet Version 1 Model builder [a]
-
     Stacks of 2 x (3 x 3) Conv2D-BN-ReLU
     Last ReLU is after the shortcut connection.
     At the beginning of each stage, the feature map size is halved (downsampled)
@@ -162,12 +188,10 @@ def multiscale_resnet_v1(inputs, scale, depth=20, num_classes=6):
     ResNet44 0.66M
     ResNet56 0.85M
     ResNet110 1.7M
-
     # Arguments
         input_shape (tensor): shape of input image tensor
         depth (int): number of core convolutional layers
         num_classes (int): number of classes (CIFAR10 has 10)
-
     # Returns
         model (Model): Keras model instance
     """
@@ -272,7 +296,99 @@ def multiscale_resnet_v1(inputs, scale, depth=20, num_classes=6):
     return x
 
 
-def mcnn():
+def multiscale_resnet_v2(inputs, scale):
+    if scale == 0:
+        inputs = resnet_layer(inputs=inputs,
+                              num_filters=16)
+
+        # stage 0
+        x = conv_block(inputs, 16, 1)
+        x = res_block(x, 16)
+        x = res_block(x, 16)
+
+    elif scale == 1:
+        inputs = resnet_layer(inputs=inputs,
+                              num_filters=8)
+
+        # stage 0
+        x = res_block(inputs, 8)
+        x = res_block(x, 8)
+        x = res_block(x, 8)
+
+        # stage 1
+        x = conv_block(x, 16)
+        x = res_block(x, 16)
+        x = res_block(x, 16)
+
+    elif scale == 2:
+        inputs = resnet_layer(inputs=inputs,
+                              num_filters=4)
+
+        # stage 0
+        x = res_block(inputs, 4)
+        x = res_block(x, 4)
+        x = res_block(x, 4)
+
+        # stage 1
+        x = conv_block(x, 8)
+        x = res_block(x, 8)
+        x = res_block(x, 8)
+
+        # stage 2
+        x = conv_block(x, 16)
+        x = res_block(x, 16)
+        x = res_block(x, 16)
+
+    return x
+
+
+def multiscale_resnet_v3(inputs, scale):
+    if scale == 0:
+        inputs = resnet_layer(inputs=inputs,
+                              num_filters=16)
+
+        # stage 0
+        x = conv_block(inputs, 16)
+        x = res_block(x, 16)
+        x = res_block(x, 16)
+
+    elif scale == 1:
+        inputs = resnet_layer(inputs=inputs,
+                              num_filters=8)
+
+        # stage 0
+        x = conv_block(inputs, 8)
+        x = res_block(x, 8)
+        x = res_block(x, 8)
+
+        # stage 1
+        x = conv_block(x, 16)
+        x = res_block(x, 16)
+        x = res_block(x, 16)
+
+    elif scale == 2:
+        inputs = resnet_layer(inputs=inputs,
+                              num_filters=4)
+
+        # stage 0
+        x = res_block(inputs, 4)
+        x = res_block(x, 4)
+        x = res_block(x, 4)
+
+        # stage 1
+        x = conv_block(x, 8)
+        x = res_block(x, 8)
+        x = res_block(x, 8)
+
+        # stage 2
+        x = conv_block(x, 16, 3)
+        x = res_block(x, 16)
+        x = res_block(x, 16)
+
+    return x
+
+
+def mcnn_v1():
     input0 = Input(shape=(img_w0, img_h0, n_channel), name='input0')
     input1 = Input(shape=(img_w1, img_h1, n_channel), name='input1')
     input2 = Input(shape=(img_w2, img_h2, n_channel), name='input2')
@@ -304,30 +420,78 @@ def mcnn():
     return model
 
 
+def mcnn_v2():
+    input0 = Input(shape=(img_w0, img_h0, n_channel), name='input0')
+    input1 = Input(shape=(img_w1, img_h1, n_channel), name='input1')
+    input2 = Input(shape=(img_w2, img_h2, n_channel), name='input2')
+
+    x0 = multiscale_resnet_v2(input0, scale=0)
+    x1 = multiscale_resnet_v2(input1, scale=1)
+    x2 = multiscale_resnet_v2(input2, scale=2)
+    merged_feature = concatenate([x0, x1, x2], axis=-1)
+    # merged_feature = Reshape((-1,))(merged_feature)
+    pooling = AveragePooling2D(pool_size=(2, 2))(merged_feature)
+    flatten = Flatten()(merged_feature)
+    softmax_linear = Dense(n_label, activation='softmax', kernel_initializer=glorot_uniform(seed=0))(flatten)
+
+    model = Model(inputs=[input0, input1, input2], outputs=softmax_linear)
+    model.compile(optimizer=Adam(lr=0.001), loss=LOSS,
+                  metrics=['binary_crossentropy', 'accuracy'])
+
+    # model.summary()
+    # keras.utils.plot_model(model, to_file='model3.png', show_shapes=True)
+
+    return model
+
+
+def mcnn_v3():
+    input0 = Input(shape=(img_w0, img_h0, n_channel), name='input0')
+    input1 = Input(shape=(img_w1, img_h1, n_channel), name='input1')
+    input2 = Input(shape=(img_w2, img_h2, n_channel), name='input2')
+
+    x0 = multiscale_resnet_v3(input0, scale=0)
+    x1 = multiscale_resnet_v3(input1, scale=1)
+    x2 = multiscale_resnet_v3(input2, scale=2)
+    merged_feature = concatenate([x0, x1, x2], axis=-1)
+    # merged_feature = Reshape((-1,))(merged_feature)
+    pooling = AveragePooling2D(pool_size=(2, 2))(merged_feature)
+    flatten = Flatten()(merged_feature)
+    softmax_linear = Dense(n_label, activation='softmax', kernel_initializer=glorot_uniform(seed=0))(flatten)
+
+    model = Model(inputs=[input0, input1, input2], outputs=softmax_linear)
+    model.compile(optimizer=Adam(lr=0.001), loss=LOSS,
+                  metrics=['binary_crossentropy', 'accuracy'])
+
+    # model.summary()
+    # keras.utils.plot_model(model, to_file='model3.png', show_shapes=True)
+
+    return model
+
+
 def train():
-    EPOCHS = 60
+    EPOCHS = 64
     BS = 128
-    model = mcnn()
+    model = mcnn_v3()
     modelcheck = ModelCheckpoint(filepath=filepath + 'weights.hdf5', monitor='val_acc', save_best_only=True, mode='max')
     lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
                                    cooldown=0,
                                    patience=5,
                                    min_lr=0.5e-6)
-    callable = [modelcheck,lr_reducer]
+    callable = [modelcheck, lr_reducer]
+    temp = pandas.read_csv(filepath + 'train.csv', names=['label'])
+    lookup.extend(temp.label.tolist())
+    lookup.pop(0)
+
     train_set, val_set = get_train_val()
     train_num = len(train_set)
     valid_num = len(val_set)
     print("the number of train data is", train_num)
     print("the number of val data is", valid_num)
-    temp = pandas.read_csv(filepath + 'train.csv', names=['label'])
-    lookup.extend(temp.label.tolist())
-    lookup.pop(0)
 
     H = model.fit_generator(generator=generateData(BS, train_set), steps_per_epoch=train_num // BS, epochs=EPOCHS,
                             verbose=1,
                             validation_data=generateData(BS, val_set), validation_steps=valid_num // BS,
                             callbacks=callable, max_queue_size=1)
-
 
     # plot the training loss and accuracy
     plt.style.use("ggplot")
@@ -346,7 +510,6 @@ def train():
         f.write('EPOCHS: ' + str(EPOCHS) + '\n')
         f.write('BS: ' + str(BS) + '\n')
         f.write('LOSS: ' + LOSS + '\n')
-        f.write('VALIDATION_RATE: ' + str(VALIDATION_RATE) + '\n')
 
 
 if __name__ == '__main__':

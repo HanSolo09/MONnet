@@ -1,3 +1,4 @@
+import os
 import cv2
 import random
 import numpy as np
@@ -44,12 +45,14 @@ MAX_DIST = 6
 RATIO = 0.5
 
 NUM_SAMPLE = 5000
-img_w0 = 16
-img_h0 = 16
-img_w1 = 32
-img_h1 = 32
-img_w2 = 64
-img_h2 = 64
+img_w0 = 24
+img_h0 = 24
+img_w1 = 48
+img_h1 = 48
+img_w2 = 72
+img_h2 = 72
+
+VALIDATION_RATE = 0.1
 
 datagen = ImageDataGenerator(brightness_range=[0.2, 1.0],
                              rotation_range=90,
@@ -166,12 +169,12 @@ def create_multiscale_roi_v2(img, seg, props, row, col):
     sub_img_0 = img[min_row:max_row, min_col: max_col, :]
 
     # scale 1
-    margin1 = 10
+    margin1 = 15
     sub_img_1 = img[max(min_row - margin1, 0):min(max_row + margin1, row - 1),
                 max(min_col - margin1, 0): min(max_col + margin1, col - 1), :]
 
     # scale 2
-    margin2 = 20
+    margin2 = 30
     sub_img_2 = img[max(min_row - margin2, 0):min(max_row + margin2, row - 1),
                 max(min_col - margin2, 0): min(max_col + margin2, col - 1), :]
 
@@ -255,6 +258,26 @@ def creat_dataset(num_sample=NUM_SAMPLE):
 
     df = pandas.DataFrame(data={"Image": images, "filename": filenames, "row": rows, "col": cols, "label": labels})
     df.to_csv(output + 'train.csv', sep=',', index=False)
+
+    # choose train and validation set
+    train_url = []
+    train_set = []
+    val_set = []
+    for pic in os.listdir(output + '0'):
+        train_url.append(pic)
+    random.shuffle(train_url)
+    total_num = len(train_url)
+    val_num = int(VALIDATION_RATE * total_num)
+    for i in range(len(train_url)):
+        if i < val_num:
+            val_set.append(train_url[i])
+        else:
+            train_set.append(train_url[i])
+
+    df2 = pandas.DataFrame(data={"train_list": train_set})
+    df2.to_csv(output + 'train_list.csv', sep=',', index=False)
+    df3 = pandas.DataFrame(data={"validation_list": val_set})
+    df3.to_csv(output + 'validation_list.csv', sep=',', index=False)
 
     with open(output + 'param.txt', 'w') as f:
         f.write('KERNEL_SIZE: ' + str(KERNEL_SIZE) + '\n')

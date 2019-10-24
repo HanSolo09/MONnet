@@ -8,13 +8,16 @@ from keras.preprocessing.image import img_to_array
 from keras.utils.np_utils import to_categorical
 from keras.callbacks import ModelCheckpoint
 from keras.initializers import glorot_uniform
-from keras.layers import Dense, Conv2D, BatchNormalization, Activation, concatenate, Flatten, Input,MaxPooling2D
+from keras.layers import Dense, Conv2D, BatchNormalization, Activation, concatenate, Flatten, Input,Reshape
 from keras.regularizers import l2
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau
+from keras.layers.convolutional_recurrent import ConvLSTM2D
+from keras.layers import Reshape
+from keras import backend as K
 
-n_label = 9
+n_label = 6
 filepath = './data/train/'
 lookup = []
 
@@ -211,8 +214,7 @@ def multiscale_resnet(inputs, scale):
 
     return x
 
-
-def mcnn():
+def ss():
     input0 = Input(shape=(img_w0, img_h0, n_channel), name='input0')
     input1 = Input(shape=(img_w1, img_h1, n_channel), name='input1')
     input2 = Input(shape=(img_w2, img_h2, n_channel), name='input2')
@@ -221,8 +223,23 @@ def mcnn():
     x1 = multiscale_resnet(input1, scale=1)
     x2 = multiscale_resnet(input2, scale=2)
     merged_feature = concatenate([x0, x1, x2], axis=-1)
-    pooling = MaxPooling2D(pool_size=(8, 8))(merged_feature)
-    flatten = Flatten()(pooling)
+    _,w,h,c = K.int_shape(x0)
+
+    merged_feature = Reshape((3,w,h,c))(merged_feature)
+    print(merged_feature.shape)
+    first_ConvLSTM = ConvLSTM2D(filters=10, kernel_size=(3, 3)
+    				   ,kernel_initializer='random_uniform'
+                       , padding='same', return_sequences=True)(merged_feature)
+    second_ConvLSTM = ConvLSTM2D(filters=10, kernel_size=(3, 3)
+                        , data_format='channels_last'
+                        , padding='same', return_sequences=True)(first_ConvLSTM)
+    last_ConvLSTM = ConvLSTM2D(filters=5, kernel_size=(3, 3)
+                        , data_format='channels_last'
+                        , stateful = False
+                        , kernel_initializer='random_uniform'
+                        , padding='same', return_sequences=False)(second_ConvLSTM)
+
+    flatten = Flatten()(last_ConvLSTM)
     softmax_linear = Dense(n_label, activation='softmax', kernel_initializer=glorot_uniform(seed=0))(flatten)
 
     model = Model(inputs=[input0, input1, input2], outputs=softmax_linear)
@@ -238,7 +255,7 @@ def mcnn():
 def train():
     EPOCHS = 64
     BS = 128
-    model = mcnn()
+    model = ss()
     modelcheck = ModelCheckpoint(filepath=filepath + 'weights.hdf5', monitor='val_acc', save_best_only=True, mode='max')
     lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
                                    cooldown=0,

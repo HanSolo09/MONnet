@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import datetime
+from skimage import io
 
 from gendata import *
 
@@ -234,26 +235,36 @@ def predict_multi_input():
         print(endtime - starttime)
 
 
-def do_vote():
+def do_vote(segpath, exclude_labels):
     """
     Do voting post processing in the prediction folder recursively.
+    :param segpath: greater scale segmentation image
+    :param exclude_labels: exclude label list like "cars"
     """
     for imgfile in image_sets:
-        seg_path = outputpath + imgfile + '_seg.png'
-        img_path = outputpath + imgfile + '_pred.png'
-        seg = cv2.imread(seg_path, -1)
-        img = cv2.imread(img_path)
+        seg_path = segpath + imgfile
+        pred_path = outputpath + imgfile + '_pred.png'
+        seg = io.imread(seg_path)  # should use skimage for io
+        img = cv2.imread(pred_path, -1)
+        print("voting " + pred_path)
 
         if seg is None:
             print('Segmentation image not exists!')
             continue
 
-        cv2.imwrite(outputpath + imgfile + '_vote.png', post_processing.vote(img, seg))
+        vote_img = post_processing.vote(img, seg)
+
+        # recover small class like "car"
+        for exclude_label in exclude_labels:
+            vote_img[img[:, :] == exclude_label] = exclude_label
+
+        cv2.imwrite(outputpath + imgfile + '_pred.png', vote_img.astype('uint8'))
 
 
-def do_crf():
+def do_crf(exclude_labels):
     """
     CRF processing all results in the prediction folder recursively.
+    :param exclude_labels: exclude label list like "cars"
     """
     for imgfile in image_sets:
         img_path = imgpath + imgfile
@@ -262,7 +273,12 @@ def do_crf():
         pred = cv2.imread(pred_path, -1)
         print("crf " + pred_path)
 
-        cv2.imwrite(outputpath + imgfile + '_crf.png', post_processing.crf(rgb_img, pred, zero_unsure=False))
+        crf_img = post_processing.crf(rgb_img, pred, zero_unsure=False)
+        # recover small class like "car"
+        for exclude_label in exclude_labels:
+            crf_img[pred[:, :] == exclude_label] = exclude_label
+
+        cv2.imwrite(outputpath + imgfile + '_pred.png', crf_img)
 
 
 def do_visualizing(dataset_type):
@@ -270,26 +286,29 @@ def do_visualizing(dataset_type):
     Visualizing all results in the prediction folder recursively.
     """
     for imgfile in image_sets:
-        pred_path = outputpath + imgfile + '_crf.png'
+        pred_path = outputpath + imgfile + '_pred.png'
         pred = cv2.imread(pred_path, -1)
         print("visualizing " + pred_path)
 
-        cv2.imwrite(outputpath + imgfile + '_crf_vis.png', post_processing.draw(pred, dataset_type))
+        cv2.imwrite(outputpath + imgfile + '_vis.png', post_processing.draw(pred, dataset_type))
 
 
 def do_evaluation(csvpath):
+    """
+    Evaluate test_list, using OA and kappa coefficient.
+    :param csvpath: path to test_list.csv
+    """
     df = pandas.read_csv(csvpath, names=['image', 'filename', 'row', 'col', 'label'], header=0)
     images = df.image.tolist()
-    filenames = df.filename.tolist()
     rows = df.row.tolist()
     cols = df.col.tolist()
     labels = df.label.tolist()
 
-    lookuptbl={}
+    lookuptbl = {}
     for i in range(len(images)):
-        row_col_label=[rows[i], cols[i],labels[i]]
+        row_col_label = [rows[i], cols[i], labels[i]]
         if images[i] not in lookuptbl:
-            lookuptbl[images[i]]=[]
+            lookuptbl[images[i]] = []
         else:
             lookuptbl[images[i]].append(row_col_label)
 
@@ -299,14 +318,38 @@ def do_evaluation(csvpath):
         pred_path = outputpath + imagename + '_pred.png'
         pred = cv2.imread(pred_path, -1)
 
-        rows_cols_labels=lookuptbl[imagename]
+        rows_cols_labels = lookuptbl[imagename]
         for row_col_label in rows_cols_labels:
             pred_i = pred[row_col_label[0], row_col_label[1]]
             y_pred.append(pred_i)
             y_true.append(row_col_label[2])
 
-
     evaluation.compute(y_pred=y_pred, y_true=y_true)
+
+
+def do_evaluation_v2(labelpath):
+    """
+    Evaluate IoU between predicted and ground truth images.
+    :param labelpath: ground truth label image
+    """
+    y_pred = []
+    y_true = []
+    for imgfile in image_sets:
+        pred_path = outputpath + imgfile + '_pred.png'
+        pred = cv2.imread(pred_path, -1)
+        temp = np.reshape(pred, (-1, 1))
+        temp = temp[:, 0]
+        y_pred.extend(temp.tolist())
+
+        gt_path = labelpath + imgfile
+        true = cv2.imread(gt_path)
+        rows, cols, _ = true.shape
+        for r in range(rows):
+            for c in range(cols):
+                label = bgr2label(true[r, c, :])
+                y_true.append(label)
+
+    evaluation.compute_IoU(y_pred=y_pred, y_true=y_true)
 
 
 if __name__ == '__main__':
@@ -316,11 +359,12 @@ if __name__ == '__main__':
     # predict_patch_input()
 
     # post processing
-    # do_vote()
-    # do_crf()
+    do_vote(segpath='./data/optimizing/', exclude_labels=[3])
+    do_crf(exclude_labels=[3])
     do_visualizing(dataset_type='vaihingen')
 
     # evaluation
-    # do_evaluation('./data/train/test_list.csv')
+    do_evaluation('./data/train/test_list.csv')
 
-    # todo: IoU evaluation
+    # mIoU evaluation
+    do_evaluation_v2('./data/label/')

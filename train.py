@@ -24,7 +24,7 @@ img_h1 = 48
 img_w2 = 72
 img_h2 = 72
 
-EPOCHS = 64
+EPOCHS = 100
 BS = 128
 
 

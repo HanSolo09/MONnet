@@ -38,3 +38,20 @@ def compute(y_pred, y_true):
     print('average_accuracy: {0:f}'.format(average_accuracy))
     print('overall_accuracy: {0:f}'.format(overall_accuracy))
     print('kappa coefficient: {0:f}'.format(kappa_coefficient))
+
+
+def compute_IoU(y_pred, y_true):
+    """
+    Evaluate IoU metrics, i.e. Jaccard index.
+    Ref:
+        https://scikit-learn.org/stable/modules/generated/sklearn.metrics.jaccard_score.html#sklearn.metrics.jaccard_score
+    :param y_pred:
+    :param y_true:
+    :return:
+    """
+    IoU = metrics.jaccard_score(y_true, y_pred, average=None)
+    mIoU = metrics.jaccard_score(y_true, y_pred, average='macro')
+    fwIoU = metrics.jaccard_score(y_true, y_pred, average='weighted')
+    print('IoU : \n', IoU)
+    print('mIoU: {0:f}'.format(mIoU))
+    print('fwIoU: {0:f}'.format(fwIoU))

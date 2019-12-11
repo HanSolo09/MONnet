@@ -321,7 +321,7 @@ def creat_dataset_from_samples(imgpath, csvpath):
     print('Create dataset done')
 
 
-def create_train_test_set(csvpath, test_rate=0.1):
+def train_test_split(csvpath, test_rate=0.1):
     """
     Choose train and test set, then save the url into two csv files.
     :param csvpath: path to train.csv
@@ -372,10 +372,10 @@ def create_train_test_set(csvpath, test_rate=0.1):
 if __name__ == '__main__':
     imgpath = './data/src/'
     labelpath = './data/label/'
-    creat_dataset_from_gt(imgpath=imgpath, labelpath=labelpath, num_sample=1000)
+    creat_dataset_from_gt(imgpath=imgpath, labelpath=labelpath, num_sample=10000)
 
     # imgpath = '/home/ubuntu/Desktop/xiangliu/data/patch2/'
     # csvpath = '/home/ubuntu/Desktop/xiangliu/csv/'
     # creat_dataset_from_samples(imgpath=imgpath, csvpath=csvpath)
 
-    create_train_test_set(csvpath=output + 'train.csv', test_rate=0.2)
+    train_test_split(csvpath=output + 'train.csv', test_rate=0.2)

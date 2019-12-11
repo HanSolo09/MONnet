@@ -67,13 +67,13 @@ def crf(im, mask, zero_unsure=True):
     image_size = mask.shape[:2]
     n_labels = len(set(labels.flat))
     d = dcrf.DenseCRF2D(image_size[1], image_size[0], n_labels)  # width, height, nlabels
-    U = unary_from_labels(labels, n_labels, gt_prob=.7, zero_unsure=zero_unsure)
+    U = unary_from_labels(labels, n_labels, gt_prob=.9, zero_unsure=zero_unsure)
     d.setUnaryEnergy(U)
     # This adds the color-independent term, features are the locations only.
     d.addPairwiseGaussian(sxy=(3, 3), compat=3)
     # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
     # im is an image-array, e.g. im.dtype == np.uint8 and im.shape == (640,480,3)
-    d.addPairwiseBilateral(sxy=80, srgb=13, rgbim=im.astype('uint8'), compat=10)
+    d.addPairwiseBilateral(sxy=60, srgb=20, rgbim=im.astype('uint8'), compat=10)
     Q = d.inference(5)  # 5 - num of iterations
     MAP = np.argmax(Q, axis=0).reshape(image_size)
     unique_map = np.unique(MAP)
@@ -90,10 +90,10 @@ def vote(img, seg):
     :param seg: object segmentation image
     :return: processed result (single channel)
     """
-    res = seg.clone()
+    res = seg.copy()
     props = measure.regionprops(seg)
     for region in props:
-        print(region.label)
+        # print(region.label)
         coord = region.coords
         labels = img[coord[:, 0], coord[:, 1]]
         counts = Counter(labels)

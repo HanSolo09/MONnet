@@ -15,7 +15,7 @@ from model.SingleCNN import SingleCNN
 
 imgpath = './data/train/'
 
-n_label = 6
+n_label = 9
 n_channel = 3
 img_w0 = 24
 img_h0 = 24
@@ -24,7 +24,7 @@ img_h1 = 48
 img_w2 = 72
 img_h2 = 72
 
-EPOCHS = 100
+EPOCHS = 64
 BS = 128
 
 
@@ -35,7 +35,7 @@ def load_mean_img(path):
     return img
 
 
-def generate_data_single_input(batch_size, images, labels):
+def generate_data_single_input(batch_size, images, labels, input3D=False):
     while True:
         train_data = []
         train_label = []
@@ -51,6 +51,8 @@ def generate_data_single_input(batch_size, images, labels):
             # if get enough bacth
             if batch % batch_size == 0:
                 train_data = np.array(train_data)
+                if input3D is True:
+                    train_data = np.expand_dims(train_data, axis=-1)  # expand to 3D input
                 train_label = np.array(train_label).flatten()
                 train_label = train_label.reshape((batch_size, 1))
                 train_label = to_categorical(train_label, num_classes=n_label)
@@ -101,6 +103,9 @@ def generate_data_multiple_input(batch_size, images, labels):
 
 
 def train(model_type):
+    """
+    :param model_type: 'MCNN', 'PixelCNN', 'SSRN' or 'SingleCNN'
+    """
     # some callbacks
     modelcheck = ModelCheckpoint(filepath=imgpath + 'weights.hdf5', monitor='val_acc', save_best_only=True, mode='max')
     # format="weights-{epoch:02d}-{val_acc:.2f}.hdf5"
@@ -109,7 +114,7 @@ def train(model_type):
     callable = [modelcheck, lr_reducer]
 
     # load train and test set
-    df = pandas.read_csv(imgpath + 'train_list.csv', names=['filename', 'label'], header=0)
+    df = pandas.read_csv(imgpath + 'train_list.csv', names=['image', 'filename', 'row', 'col', 'label'], header=0)
     train_filename = df.filename.tolist()
     train_label = df.label.tolist()
     df2 = pandas.read_csv(imgpath + 'test_list.csv', names=['image', 'filename', 'row', 'col', 'label'], header=0)
@@ -129,21 +134,21 @@ def train(model_type):
                                 validation_steps=len(test_filename) // BS,
                                 callbacks=callable, max_queue_size=1)
     elif model_type is 'PixelCNN':
-        model = PixelCNN(shape=(img_h0, img_w0, n_channel), n_label=n_label)
+        model = PixelCNN(shape=(img_h2, img_w2, n_channel), n_label=n_label)
         H = model.fit_generator(generator=generate_data_single_input(BS, train_filename, train_label),
                                 steps_per_epoch=len(train_filename) // BS,
                                 epochs=EPOCHS,
                                 verbose=1,
-                                validation_data=generate_data_multiple_input(BS, test_filename, test_label),
+                                validation_data=generate_data_single_input(BS, test_filename, test_label),
                                 validation_steps=len(test_filename) // BS,
                                 callbacks=callable, max_queue_size=1)
     elif model_type is 'SSRN':
-        model = SSRN(shape=(1, img_h0, img_w0, n_channel), n_label=n_label)
-        H = model.fit_generator(generator=generate_data_single_input(BS, train_filename, train_label),
+        model = SSRN(shape=(1, img_h2, img_w2, n_channel), n_label=n_label)
+        H = model.fit_generator(generator=generate_data_single_input(BS, train_filename, train_label, input3D=True),
                                 steps_per_epoch=len(train_filename) // BS,
                                 epochs=EPOCHS,
                                 verbose=1,
-                                validation_data=generate_data_multiple_input(BS, test_filename, test_label),
+                                validation_data=generate_data_single_input(BS, test_filename, test_label, input3D=True),
                                 validation_steps=len(test_filename) // BS,
                                 callbacks=callable, max_queue_size=1)
     elif model_type is 'SingleCNN':
@@ -152,7 +157,7 @@ def train(model_type):
                                 steps_per_epoch=len(train_filename) // BS,
                                 epochs=EPOCHS,
                                 verbose=1,
-                                validation_data=generate_data_multiple_input(BS, test_filename, test_label),
+                                validation_data=generate_data_single_input(BS, test_filename, test_label),
                                 validation_steps=len(test_filename) // BS,
                                 callbacks=callable, max_queue_size=1)
     else:
@@ -177,4 +182,4 @@ if __name__ == '__main__':
     # import os
     # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-    train(model_type='MCNN')
+    train(model_type='SingleCNN')

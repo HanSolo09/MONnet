@@ -3,7 +3,7 @@ from model.MCNN import *
 
 def SingleCNN(shape, n_label):
     input = Input(shape=shape, name='input')
-    x = multiscale_resnet(input, scale=2)
+    x = multiscale_resnet(input, scale=0)
     flatten = Flatten()(x)
     softmax_linear = Dense(n_label, activation='softmax', kernel_initializer=glorot_uniform(seed=0))(flatten)
 

@@ -1,9 +1,9 @@
 from model.MCNN import *
 
 
-def SingleCNN(shape, n_label):
+def SingleCNN(shape, n_label,scale):
     input = Input(shape=shape, name='input')
-    x = multiscale_resnet(input, scale=0)
+    x = multiscale_resnet(input, scale=scale)
     flatten = Flatten()(x)
     softmax_linear = Dense(n_label, activation='softmax', kernel_initializer=glorot_uniform(seed=0))(flatten)
 

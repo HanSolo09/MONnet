@@ -24,7 +24,7 @@ def compute(y_pred, y_true):
         y_pred = [1,2,3,4,5,1,2,1,1,4,5]
         y_true = [1,2,3,4,5,1,2,1,1,4,1]
 
-    :return:
+    :return: OA
     """
     classify_report = metrics.classification_report(y_true, y_pred)
     confusion_matrix = metrics.confusion_matrix(y_true, y_pred)
@@ -38,6 +38,8 @@ def compute(y_pred, y_true):
     print('average_accuracy: {0:f}'.format(average_accuracy))
     print('overall_accuracy: {0:f}'.format(overall_accuracy))
     print('kappa coefficient: {0:f}'.format(kappa_coefficient))
+
+    return overall_accuracy
 
 
 def compute_IoU(y_pred, y_true):

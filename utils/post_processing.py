@@ -35,28 +35,28 @@ def draw(img, dataset_type):
             for j in range(col):
                 pixel = img[i, j].tolist()
                 if pixel == 0:
-                    res[i, j] = [0, 0, 0]  # Road
+                    res[i, j] = [0, 0, 0]  # nothing
                 elif pixel == 1:
-                    res[i, j] = [209, 111, 100]  # Water
+                    res[i, j] = [209, 111, 100]  # Floating plants
                 elif pixel == 2:
-                    res[i, j] = [154, 154, 154]  # Buildings
+                    res[i, j] = [229, 229, 229]  # Roads
                 elif pixel == 3:
-                    res[i, j] = [115, 243, 86]  # Cars
+                    res[i, j] = [168, 211, 58]  # Crops
                 elif pixel == 4:
-                    res[i, j] = [81, 185, 88]  # Trees
+                    res[i, j] = [51, 160, 44]  # Trees
                 elif pixel == 5:
-                    res[i, j] = [168, 211, 58]  # Grass
+                    res[i, j] = [170, 255, 91]  # Shrubs
                 elif pixel == 6:
-                    res[i, j] = [202, 189, 66]  # Grass
+                    res[i, j] = [253, 191, 111]  # Bare soil
                 elif pixel == 7:
-                    res[i, j] = [122, 107, 199]  # Grass
+                    res[i, j] = [128, 79, 193]  # Buildings
                 elif pixel == 8:
-                    res[i, j] = [67, 177, 213]  # Grass
+                    res[i, j] = [67, 177, 213]  # Water
 
     return res
 
 
-def crf(im, mask, zero_unsure=True):
+def crf(im, mask, gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb_bilateral=10):
     """
     Fully connected CRF post processing function
     :param im: original image (single channel or 3 channels)
@@ -67,13 +67,13 @@ def crf(im, mask, zero_unsure=True):
     image_size = mask.shape[:2]
     n_labels = len(set(labels.flat))
     d = dcrf.DenseCRF2D(image_size[1], image_size[0], n_labels)  # width, height, nlabels
-    U = unary_from_labels(labels, n_labels, gt_prob=.9, zero_unsure=zero_unsure)
+    U = unary_from_labels(labels, n_labels, gt_prob=gt_prob, zero_unsure=False)
     d.setUnaryEnergy(U)
     # This adds the color-independent term, features are the locations only.
-    d.addPairwiseGaussian(sxy=(3, 3), compat=3)
+    d.addPairwiseGaussian(sxy=sxy_gaussian, compat=3)
     # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
     # im is an image-array, e.g. im.dtype == np.uint8 and im.shape == (640,480,3)
-    d.addPairwiseBilateral(sxy=60, srgb=20, rgbim=im.astype('uint8'), compat=10)
+    d.addPairwiseBilateral(sxy=sxy_bilateral, srgb=srgb_bilateral, rgbim=im.astype('uint8'), compat=10)
     Q = d.inference(5)  # 5 - num of iterations
     MAP = np.argmax(Q, axis=0).reshape(image_size)
     unique_map = np.unique(MAP)

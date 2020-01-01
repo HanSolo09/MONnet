@@ -12,10 +12,15 @@ from model.MCNN import MCNN
 from model.PixelCNN import PixelCNN
 from model.SSRN import SSRN
 from model.SingleCNN import SingleCNN
+from model.Unet import Unet
 
-imgpath = './data/train/'
+from sklearn.preprocessing import LabelEncoder
 
-n_label = 9
+# imgpath = './data/xiangliu_final/'
+img_dir = './data/vaihingen_final/'
+gt_dir = './data/vaihingen_final/unet_label/'
+
+n_label = 6
 n_channel = 3
 img_w0 = 24
 img_h0 = 24
@@ -35,6 +40,40 @@ def load_mean_img(path):
     return img
 
 
+def generate_data_unet_input(batch_size, images):
+    while True:
+        train_data = []
+        train_label = []
+        batch = 0
+
+        for i in (range(len(images))):
+            url = str(images[i])
+            batch += 1
+            roi = load_mean_img(img_dir + '2/' + url)
+            roi = cv2.resize(roi, (64, 64))
+            roi = img_to_array(roi)
+            train_data.append(roi)
+
+            gt = cv2.imread(gt_dir + url, -1)
+            gt = cv2.resize(gt, (64, 64))
+            gt = np.array(gt).flatten()
+            gt = to_categorical(gt, num_classes=n_label)
+            gt = gt.reshape((64, 64, n_label))
+
+            gt = img_to_array(gt)
+            train_label.append(gt)
+
+            # if get enough bacth
+            if batch % batch_size == 0:
+                train_data = np.array(train_data)
+                train_label = np.array(train_label)
+                yield (train_data, train_label)
+
+                train_data = []
+                train_label = []
+                batch = 0
+
+
 def generate_data_single_input(batch_size, images, labels, input3D=False):
     while True:
         train_data = []
@@ -43,7 +82,7 @@ def generate_data_single_input(batch_size, images, labels, input3D=False):
         for i in (range(len(images))):
             url = str(images[i])
             batch += 1
-            roi0 = load_mean_img(imgpath + '0/' + url)
+            roi0 = load_mean_img(img_dir + '2/' + url)
             roi0 = img_to_array(roi0)
             train_data.append(roi0)
             train_label.append(labels[i])
@@ -73,13 +112,13 @@ def generate_data_multiple_input(batch_size, images, labels):
         for i in (range(len(images))):
             url = str(images[i])
             batch += 1
-            roi0 = load_mean_img(imgpath + '0/' + url)
+            roi0 = load_mean_img(img_dir + '0/' + url)
             roi0 = img_to_array(roi0)
             train_data0.append(roi0)
-            roi1 = load_mean_img(imgpath + '1/' + url)
+            roi1 = load_mean_img(img_dir + '1/' + url)
             roi1 = img_to_array(roi1)
             train_data1.append(roi1)
-            roi2 = load_mean_img(imgpath + '2/' + url)
+            roi2 = load_mean_img(img_dir + '2/' + url)
             roi2 = img_to_array(roi2)
             train_data2.append(roi2)
 
@@ -107,17 +146,17 @@ def train(model_type):
     :param model_type: 'MCNN', 'PixelCNN', 'SSRN' or 'SingleCNN'
     """
     # some callbacks
-    modelcheck = ModelCheckpoint(filepath=imgpath + 'weights.hdf5', monitor='val_acc', save_best_only=True, mode='max')
+    modelcheck = ModelCheckpoint(filepath=img_dir + 'weights.hdf5', monitor='val_acc', save_best_only=True, mode='max')
     # format="weights-{epoch:02d}-{val_acc:.2f}.hdf5"
     # modelcheck = ModelCheckpoint(filepath=filepath + format, monitor='val_acc', save_best_only=False, mode='max',period=1)
     lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1), cooldown=0, patience=5, min_lr=0.5e-6)
     callable = [modelcheck, lr_reducer]
 
     # load train and test set
-    df = pandas.read_csv(imgpath + 'train_list.csv', names=['image', 'filename', 'row', 'col', 'label'], header=0)
+    df = pandas.read_csv(img_dir + 'train_list.csv', names=['image', 'filename', 'row', 'col', 'label'], header=0)
     train_filename = df.filename.tolist()
     train_label = df.label.tolist()
-    df2 = pandas.read_csv(imgpath + 'test_list.csv', names=['image', 'filename', 'row', 'col', 'label'], header=0)
+    df2 = pandas.read_csv(img_dir + 'test_list.csv', names=['image', 'filename', 'row', 'col', 'label'], header=0)
     test_filename = df2.filename.tolist()
     test_label = df2.label.tolist()
     print("the number of train data is", len(train_filename))
@@ -152,12 +191,21 @@ def train(model_type):
                                 validation_steps=len(test_filename) // BS,
                                 callbacks=callable, max_queue_size=1)
     elif model_type is 'SingleCNN':
-        model = SingleCNN(shape=(img_h0, img_w0, n_channel), n_label=n_label)
+        model = SingleCNN(shape=(img_h2, img_w2, n_channel), n_label=n_label, scale=2)
         H = model.fit_generator(generator=generate_data_single_input(BS, train_filename, train_label),
                                 steps_per_epoch=len(train_filename) // BS,
                                 epochs=EPOCHS,
                                 verbose=1,
                                 validation_data=generate_data_single_input(BS, test_filename, test_label),
+                                validation_steps=len(test_filename) // BS,
+                                callbacks=callable, max_queue_size=1)
+    elif model_type is 'Unet':
+        model = Unet(shape=(64, 64, n_channel), n_label=n_label)
+        H = model.fit_generator(generator=generate_data_unet_input(BS, train_filename),
+                                steps_per_epoch=len(train_filename) // BS,
+                                epochs=EPOCHS,
+                                verbose=1,
+                                validation_data=generate_data_unet_input(BS, test_filename),
                                 validation_steps=len(test_filename) // BS,
                                 callbacks=callable, max_queue_size=1)
     else:
@@ -171,15 +219,15 @@ def train(model_type):
     plt.plot(np.arange(0, EPOCHS), H.history["val_loss"], label="val_loss")
     plt.plot(np.arange(0, EPOCHS), H.history["acc"], label="train_acc")
     plt.plot(np.arange(0, EPOCHS), H.history["val_acc"], label="val_acc")
-    plt.title("Training Loss and Accuracy on MCNN")
+    plt.title("Training Loss and Accuracy on " + model_type)
     plt.xlabel("Epoch")
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
-    plt.savefig(imgpath + "plot.png")
+    plt.savefig(img_dir + "plot.png")
 
 
 if __name__ == '__main__':
     # import os
     # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-    train(model_type='SingleCNN')
+    train(model_type='Unet')

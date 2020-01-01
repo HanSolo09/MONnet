@@ -11,15 +11,17 @@ from utils import evaluation
 from keras.models import load_model
 
 image_sets = [
-    # 'top_mosaic_09cm_area1.tif',
-    # 'top_mosaic_09cm_area2.tif',
-    # 'top_mosaic_09cm_area3.tif',
-    # 'top_mosaic_09cm_area4.tif',
-    # 'top_mosaic_09cm_area5.tif',
-    # 'top_mosaic_09cm_area6.tif',
-    # 'top_mosaic_09cm_area7.tif',
-    # 'top_mosaic_09cm_area8.tif',
-    # 'top_mosaic_09cm_area10.tif',
+    'top_mosaic_09cm_area1.tif',
+    'top_mosaic_09cm_area2.tif',
+    'top_mosaic_09cm_area3.tif',
+    'top_mosaic_09cm_area4.tif',
+    'top_mosaic_09cm_area5.tif',
+    'top_mosaic_09cm_area6.tif',
+    'top_mosaic_09cm_area7.tif',
+    'top_mosaic_09cm_area8.tif',
+    'top_mosaic_09cm_area10.tif',
+    'top_mosaic_09cm_area26.tif'
+
     # 'top_mosaic_09cm_area11.tif',
     # 'top_mosaic_09cm_area12.tif',
     # 'top_mosaic_09cm_area13.tif',
@@ -32,7 +34,6 @@ image_sets = [
     # 'top_mosaic_09cm_area22.tif',
     # 'top_mosaic_09cm_area23.tif',
     # 'top_mosaic_09cm_area24.tif',
-    # 'top_mosaic_09cm_area26.tif'
     # 'top_mosaic_09cm_area27.tif',
     # 'top_mosaic_09cm_area28.tif',
     # 'top_mosaic_09cm_area30.tif',
@@ -50,11 +51,11 @@ image_sets = [
     # '9.tif',
     # '14.tif',
     # '16.tif',
-    '20.tif',
-    '22.tif',
-    '26.tif',
-    '28.tif',
-    '33.tif'
+    # '20.tif',
+    # '22.tif',
+    # '26.tif',
+    # '28.tif',
+    # '33.tif'
 
     # '2.tif'
     # '3.tif',
@@ -86,9 +87,12 @@ image_sets = [
     # '34.tif'
 ]
 
-imgpath = '/home/ubuntu/Desktop/xiangliu/data/patch2/'
-# imgpath = './data/src/'
-outputpath = './data/predict/'
+# imgpath = '/home/ubuntu/Desktop/xiangliu/data/patch2/'
+imgpath = '/home/ubuntu/Desktop/gjh2.0/data/src/'
+
+# outputpath = './data/predict/'
+outputpath = '/home/ubuntu/Desktop/gjh2.0/data/vaihingen_final/mcnn/'
+# outputpath = '/home/ubuntu/Desktop/gjh2.0/data/xiangliu_final/xgboost/'
 
 img_w0 = 24
 img_h0 = 24
@@ -97,11 +101,49 @@ img_h1 = 48
 img_w2 = 72
 img_h2 = 72
 
-# 1 means don't use vote
-vote_when_predict = 3
+
+def predict_unet_input(modelpath):
+    """
+    Predicting based on trained network, unet input, i.e., in a sliding window manner.
+    :param batch_size: predict on batch!  It is recommended to pick a batch size
+        that is as large as you can afford without going out of memory (since larger
+         batches will usually result in faster evaluation/prediction).
+    """
+    model = load_model(modelpath)
+    for i in range(len(image_sets)):
+        # load test image
+        filepath = imgpath + image_sets[i]
+        rgb_img = cv2.imread(filepath)
+        print("predicting " + filepath)
+        starttime = datetime.datetime.now()
+
+        rows, cols, _ = rgb_img.shape
+        res = np.zeros((rows, cols), np.uint8)
+
+        stride = 32  # overlay 50%
+        for r in np.arange(0, rows, stride):
+            for c in np.arange(0, cols, stride):
+                roi = DatasetGenerator.create_patch_roi_v2(rgb_img, r, c, 64)
+                rows_roi, cols_roi,_ = roi.shape
+                roi = cv2.resize(roi, (64, 64))
+                roi = np.array(roi, dtype="float") / 255.0
+                roi = np.expand_dims(roi, axis=0)
+
+                prob = model.predict(np.array(roi))
+                pred = prob.argmax(axis=-1)
+                pred = pred.reshape((64,64)).astype(np.uint8)
+                pred = cv2.resize(pred, (cols_roi,rows_roi))
+
+                res[r:min(r + 64, rows - 1), c:min(c + 64, cols - 1)] = pred[:, :]
+
+        cv2.imwrite(outputpath + image_sets[i] + '_pred.png', res)
+        print(outputpath + image_sets[i] + '_pred.png is saved!')
+        endtime = datetime.datetime.now()
+        print('processing time: ')
+        print(endtime - starttime)
 
 
-def predict_patch_input(input3D=False, batch_size=64):
+def predict_patch_input(modelpath, input3D=False, batch_size=64):
     """
     Predicting based on trained network, single patch input, i.e. pixel wise.
     :param input3D: if you use SSRN, input3D need to be set as True.
@@ -109,7 +151,7 @@ def predict_patch_input(input3D=False, batch_size=64):
         that is as large as you can afford without going out of memory (since larger
          batches will usually result in faster evaluation/prediction).
     """
-    model = load_model('./data/train/weights.hdf5')
+    model = load_model(modelpath)
     for i in range(len(image_sets)):
         # load test image
         filepath = imgpath + image_sets[i]
@@ -125,7 +167,7 @@ def predict_patch_input(input3D=False, batch_size=64):
         rows_cols = []
         for r in range(rows):
             for c in range(cols):
-                roi = create_patch_roi(rgb_img, r, c)
+                roi = DatasetGenerator.create_patch_roi(rgb_img, r, c, img_w2)
                 roi = cv2.resize(roi, (img_h2, img_w2))
 
                 roi_k = np.array(roi, dtype="float") / 255.0
@@ -155,11 +197,14 @@ def predict_patch_input(input3D=False, batch_size=64):
         print(endtime - starttime)
 
 
-def predict_single_input():
+def predict_single_input(modelpath, batch_size=64):
     """
     Predicting based on trained network, single object input.
+    :param batch_size: predict on batch!  It is recommended to pick a batch size
+        that is as large as you can afford without going out of memory (since larger
+         batches will usually result in faster evaluation/prediction).
     """
-    model = load_model('./data/train/weights.hdf5')
+    model = load_model(modelpath)
     for i in range(len(image_sets)):
         # load test image
         filepath = imgpath + image_sets[i]
@@ -169,37 +214,39 @@ def predict_single_input():
 
         rows, cols, _ = rgb_img.shape
 
-        # superpixels segmentation
-        seg_path = imgpath + image_sets[i] + '_seg.npy'
-        if path.exists(seg_path):
-            seg = np.load(seg_path)
-        else:
-            seg = segmentation.quickshift(rgb_img, kernel_size=KERNEL_SIZE, max_dist=MAX_DIST, ratio=RATIO)
-            np.save(seg_path, seg)
+        seg = DatasetGenerator.segmentation(image_path=filepath)
         seg = seg + 1
         props = regionprops(seg)
 
         res = np.zeros((rows, cols, 1), np.uint8)
+        rois = []
+        coord_list = []
+        counter = 0
         for j in range(len(props)):
             row_j = props[j].coords[0][0]
             col_j = props[j].coords[0][1]
-            roi = create_singlescale_roi(rgb_img, seg, props, row_j, col_j)
+
+            # todo: change the single input scale according to your network
+            roi = DatasetGenerator.create_singlescale_roi(rgb_img, seg, props, row_j, col_j, scale=0)
             roi = cv2.resize(roi, (img_h0, img_w0))
 
-            # data augmentation
-            roi_aug_list = data_augment(roi, vote_when_predict)
-            classes_list = []
-            for k in range(len(roi_aug_list)):
-                roi_k = np.array(roi_aug_list[k], dtype="float") / 255.0
-                roi_k = np.expand_dims(roi_k, axis=0)
-                prob = model.predict(roi_k)
-                classes_k = prob.argmax(axis=-1)
-                classes_list.append(classes_k[0])
+            roi = np.array(roi, dtype="float") / 255.0
 
-            # vote when predicting
-            classes = max(set(classes_list), key=classes_list.count)
-            coord_list = props[j].coords
-            res[coord_list[:, 0], coord_list[:, 1]] = classes
+            rois.append(roi)
+            coord_list.append(props[j].coords)
+            counter = counter + 1
+
+            # predict on batch
+            if (counter is batch_size) or (j is len(props) - 1):
+                probs = model.predict(np.array(rois), batch_size=batch_size)
+                for k in range(len(probs)):
+                    prob = probs[k]
+                    coord = coord_list[k]
+                    res[coord[:, 0], coord[:, 1]] = prob.argmax(axis=-1)
+
+                rois = []
+                coord_list = []
+                counter = 0
 
         cv2.imwrite(outputpath + image_sets[i] + '_pred.png', res)
         print(outputpath + image_sets[i] + '_pred.png is saved!')
@@ -208,14 +255,14 @@ def predict_single_input():
         print(endtime - starttime)
 
 
-def predict_multi_input(batch_size=64):
+def predict_multi_input(modelpath, batch_size=64):
     """
     Predicting based on trained network, multi object inputs.
     :param batch_size: predict on batch!  It is recommended to pick a batch size
         that is as large as you can afford without going out of memory (since larger
          batches will usually result in faster evaluation/prediction).
     """
-    model = load_model('./data/train/weights.hdf5')
+    model = load_model(modelpath)
     for i in range(len(image_sets)):
         # load test image
         filepath = imgpath + image_sets[i]
@@ -225,13 +272,7 @@ def predict_multi_input(batch_size=64):
 
         row, col, _ = rgb_img.shape
 
-        # superpixels segmentation
-        seg_path = imgpath + image_sets[i] + '_seg.npy'
-        if path.exists(seg_path):
-            seg = np.load(seg_path)
-        else:
-            seg = segmentation.quickshift(rgb_img, kernel_size=KERNEL_SIZE, max_dist=MAX_DIST, ratio=RATIO)
-            np.save(seg_path, seg)
+        seg = DatasetGenerator.segmentation(image_path=filepath)
         seg = seg + 1
         props = regionprops(seg)
 
@@ -239,13 +280,13 @@ def predict_multi_input(batch_size=64):
         roi0s = []
         roi1s = []
         roi2s = []
-        coord_list=[]
+        coord_list = []
         counter = 0
         for j in range(len(props)):
             row_j = props[j].coords[0][0]
             col_j = props[j].coords[0][1]
 
-            roi0, roi1, roi2 = create_multiscale_roi(rgb_img, seg, props, row_j, col_j)
+            roi0, roi1, roi2 = DatasetGenerator.create_multiscale_roi(rgb_img, seg, props, row_j, col_j)
             roi0 = cv2.resize(roi0, (img_h0, img_w0))
             roi1 = cv2.resize(roi1, (img_h1, img_w1))
             roi2 = cv2.resize(roi2, (img_h2, img_w2))
@@ -264,13 +305,13 @@ def predict_multi_input(batch_size=64):
                 probs = model.predict([np.array(roi0s), np.array(roi1s), np.array(roi2s)], batch_size=batch_size)
                 for k in range(len(probs)):
                     prob = probs[k]
-                    coord=coord_list[k]
+                    coord = coord_list[k]
                     res[coord[:, 0], coord[:, 1]] = prob.argmax(axis=-1)
 
                 roi0s = []
                 roi1s = []
                 roi2s = []
-                coord_list=[]
+                coord_list = []
                 counter = 0
 
         cv2.imwrite(outputpath + image_sets[i] + '_pred.png', res)
@@ -301,12 +342,13 @@ def do_vote(segpath, exclude_labels=[]):
 
         # recover small class like "car"
         for exclude_label in exclude_labels:
+            vote_img[vote_img[:, :] == exclude_label] = 0
             vote_img[img[:, :] == exclude_label] = exclude_label
 
         cv2.imwrite(outputpath + imgfile + '_pred2.png', vote_img.astype('uint8'))
 
 
-def do_crf(exclude_labels=[]):
+def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb_bilateral=10):
     """
     CRF processing all results in the prediction folder recursively.
     :param exclude_labels: exclude label list like "cars"
@@ -318,9 +360,11 @@ def do_crf(exclude_labels=[]):
         pred = cv2.imread(pred_path, -1)
         print("crf " + pred_path)
 
-        crf_img = post_processing.crf(rgb_img, pred, zero_unsure=False)
+        crf_img = post_processing.crf(rgb_img, pred, gt_prob=gt_prob, sxy_gaussian=sxy_gaussian,
+                                      sxy_bilateral=sxy_bilateral, srgb_bilateral=srgb_bilateral)
         # recover small class like "car"
         for exclude_label in exclude_labels:
+            crf_img[crf_img[:, :] == exclude_label] = 0
             crf_img[pred[:, :] == exclude_label] = exclude_label
 
         cv2.imwrite(outputpath + imgfile + '_pred2.png', crf_img)
@@ -338,7 +382,7 @@ def do_visualizing(dataset_type):
         cv2.imwrite(outputpath + imgfile + '_vis.png', post_processing.draw(pred, dataset_type))
 
 
-def do_evaluation(csvpath):
+def do_evaluation(csvpath, ignore_zero=False):
     """
     Evaluate test_list, using OA and kappa coefficient.
     :param csvpath: path to test_list.csv
@@ -366,10 +410,16 @@ def do_evaluation(csvpath):
         rows_cols_labels = lookuptbl[imagename]
         for row_col_label in rows_cols_labels:
             pred_i = pred[row_col_label[0], row_col_label[1]]
+
+            if ignore_zero is True:  # skip zero value when evaluation
+                if pred_i == 0 or row_col_label[2] == 0:
+                    continue
+
             y_pred.append(pred_i)
             y_true.append(row_col_label[2])
 
-    evaluation.compute(y_pred=y_pred, y_true=y_true)
+    oa = evaluation.compute(y_pred=y_pred, y_true=y_true)
+    return oa
 
 
 def do_evaluation_v2(labelpath):
@@ -391,7 +441,7 @@ def do_evaluation_v2(labelpath):
         rows, cols, _ = true.shape
         for r in range(rows):
             for c in range(cols):
-                label = bgr2label(true[r, c, :])
+                label = DatasetGenerator.bgr2label(true[r, c, :], dataset_type='vaihingen')
                 y_true.append(label)
 
     evaluation.compute_IoU(y_pred=y_pred, y_true=y_true)
@@ -399,18 +449,21 @@ def do_evaluation_v2(labelpath):
 
 if __name__ == '__main__':
     # predict
-    # predict_multi_input(batch_size=256)
-    # predict_single_input()
-    predict_patch_input(input3D=False, batch_size=256)
+    # predict_multi_input(modelpath='./data/vaihingen_final/mcnn/weights.hdf5',batch_size=256)
+    # predict_single_input(modelpath='./data/vaihingen_final/singleCNN_level0/weights.hdf5',batch_size=256)
+    # predict_patch_input(modelpath='./data/vaihingen_final/pixelCNN/weights.hdf5',input3D=False, batch_size=256)
+    # predict_unet_input(modelpath='./data/vaihingen_final/unet/weights.hdf5')
 
     # post processing
-    do_vote(segpath='./data/optimizing/', exclude_labels=[])
-    do_crf(exclude_labels=[])
-    # do_visualizing(dataset_type='vaihingen')
-    do_visualizing(dataset_type='xiangliu')
+    do_vote(segpath='./data/optimizing/', exclude_labels=[3])
+    do_crf(exclude_labels=[3])
+
+    do_visualizing(dataset_type='vaihingen')
+    # do_visualizing(dataset_type='xiangliu')
 
     # evaluation
-    do_evaluation('./data/train/test_list.csv')
+    do_evaluation('./data/vaihingen_final/test_list.csv', ignore_zero=False)
+    # do_evaluation('./data/xiangliu_final/test_list.csv', ignore_zero=True)
 
     # mIoU evaluation
     # do_evaluation_v2('./data/label/')

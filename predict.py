@@ -11,16 +11,16 @@ from utils import evaluation
 from keras.models import load_model
 
 image_sets = [
-    'top_mosaic_09cm_area1.tif',
-    'top_mosaic_09cm_area2.tif',
-    'top_mosaic_09cm_area3.tif',
-    'top_mosaic_09cm_area4.tif',
-    'top_mosaic_09cm_area5.tif',
-    'top_mosaic_09cm_area6.tif',
-    'top_mosaic_09cm_area7.tif',
-    'top_mosaic_09cm_area8.tif',
-    'top_mosaic_09cm_area10.tif',
-    'top_mosaic_09cm_area26.tif'
+    # 'top_mosaic_09cm_area1.tif',
+    # 'top_mosaic_09cm_area2.tif',
+    # 'top_mosaic_09cm_area3.tif',
+    # 'top_mosaic_09cm_area4.tif',
+    # 'top_mosaic_09cm_area5.tif',
+    # 'top_mosaic_09cm_area6.tif',
+    # 'top_mosaic_09cm_area7.tif',
+    # 'top_mosaic_09cm_area8.tif',
+    # 'top_mosaic_09cm_area10.tif',
+    # 'top_mosaic_09cm_area26.tif'
 
     # 'top_mosaic_09cm_area11.tif',
     # 'top_mosaic_09cm_area12.tif',
@@ -45,17 +45,17 @@ image_sets = [
     # 'top_mosaic_09cm_area37.tif',
     # 'top_mosaic_09cm_area38.tif'
 
-    # '2.tif',
-    # '3.tif',
-    # '8.tif',
-    # '9.tif',
-    # '14.tif',
-    # '16.tif',
-    # '20.tif',
-    # '22.tif',
-    # '26.tif',
-    # '28.tif',
-    # '33.tif'
+    '2.tif',
+    '3.tif',
+    '8.tif',
+    '9.tif',
+    '14.tif',
+    '16.tif',
+    '20.tif',
+    '22.tif',
+    '26.tif',
+    '28.tif',
+    '33.tif'
 
     # '2.tif'
     # '3.tif',
@@ -88,10 +88,10 @@ image_sets = [
 ]
 
 # imgpath = '/home/ubuntu/Desktop/xiangliu/data/patch2/'
-imgpath = '/home/ubuntu/Desktop/gjh2.0/data/src/'
+imgpath = '/home/ubuntu/data/mcnn_data/src/'
 
 # outputpath = './data/predict/'
-outputpath = '/home/ubuntu/Desktop/gjh2.0/data/vaihingen_final/mcnn/'
+# outputpath = '/home/ubuntu/data/mcnn_data/vaihingen_final/vaihingen_results/unet/'
 # outputpath = '/home/ubuntu/Desktop/gjh2.0/data/xiangliu_final/xgboost/'
 
 img_w0 = 24
@@ -404,7 +404,7 @@ def do_evaluation(csvpath, ignore_zero=False):
     y_pred = []
     y_true = []
     for imagename in lookuptbl:
-        pred_path = outputpath + imagename + '_pred2.png'
+        pred_path = outputpath + imagename + '_pred.png'
         pred = cv2.imread(pred_path, -1)
 
         rows_cols_labels = lookuptbl[imagename]
@@ -452,17 +452,22 @@ if __name__ == '__main__':
     # predict_multi_input(modelpath='./data/vaihingen_final/mcnn/weights.hdf5',batch_size=256)
     # predict_single_input(modelpath='./data/vaihingen_final/singleCNN_level0/weights.hdf5',batch_size=256)
     # predict_patch_input(modelpath='./data/vaihingen_final/pixelCNN/weights.hdf5',input3D=False, batch_size=256)
-    # predict_unet_input(modelpath='./data/vaihingen_final/unet/weights.hdf5')
+    # predict_unet_input(modelpath='/home/ubuntu/data/mcnn_data/vaihingen_final/vaihingen_results/unet/weights.hdf5')
 
     # post processing
-    do_vote(segpath='./data/optimizing/', exclude_labels=[3])
-    do_crf(exclude_labels=[3])
+    # do_vote(segpath='./data/optimizing/', exclude_labels=[3])
+    # do_crf(exclude_labels=[3])
 
-    do_visualizing(dataset_type='vaihingen')
-    # do_visualizing(dataset_type='xiangliu')
+    # do_visualizing(dataset_type='vaihingen')
+    outputpath = '/home/ubuntu/data/mcnn_data/xiangliu_final/xiangliu_results/mcnn/with_crf/'
+    print(outputpath)
+    do_visualizing(dataset_type='xiangliu')
+    outputpath = '/home/ubuntu/data/mcnn_data/xiangliu_final/xiangliu_results/xgboost/'
+    print(outputpath)
+    do_visualizing(dataset_type='xiangliu')
 
     # evaluation
-    do_evaluation('./data/vaihingen_final/test_list.csv', ignore_zero=False)
+    # do_evaluation('/home/ubuntu/data/mcnn_data/vaihingen_final/test_list.csv', ignore_zero=False)
     # do_evaluation('./data/xiangliu_final/test_list.csv', ignore_zero=True)
 
     # mIoU evaluation

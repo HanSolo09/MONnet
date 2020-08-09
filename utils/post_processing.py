@@ -37,21 +37,21 @@ def draw(img, dataset_type):
                 if pixel == 0:
                     res[i, j] = [0, 0, 0]  # nothing
                 elif pixel == 1:
-                    res[i, j] = [209, 111, 100]  # Floating plants
+                    res[i, j] = [100, 111, 209]  # Floating plants
                 elif pixel == 2:
                     res[i, j] = [229, 229, 229]  # Roads
                 elif pixel == 3:
-                    res[i, j] = [168, 211, 58]  # Crops
+                    res[i, j] = [58, 211, 168]  # Crops
                 elif pixel == 4:
-                    res[i, j] = [51, 160, 44]  # Trees
+                    res[i, j] = [44, 160, 51]  # Trees
                 elif pixel == 5:
-                    res[i, j] = [170, 255, 91]  # Shrubs
+                    res[i, j] = [91, 255, 170]  # Shrubs
                 elif pixel == 6:
-                    res[i, j] = [253, 191, 111]  # Bare soil
+                    res[i, j] = [111, 191, 253]  # Bare soil
                 elif pixel == 7:
-                    res[i, j] = [128, 79, 193]  # Buildings
+                    res[i, j] = [193, 79, 128]  # Buildings
                 elif pixel == 8:
-                    res[i, j] = [67, 177, 213]  # Water
+                    res[i, j] = [213, 177, 67]  # Water
 
     return res
 

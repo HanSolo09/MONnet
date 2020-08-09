@@ -147,6 +147,6 @@ def MCNN(shape0, shape1, shape2, n_label):
                   metrics=['binary_crossentropy', 'accuracy'])
 
     # model.summary()
-    # keras.utils.plot_model(model, to_file='MCNN.png', show_shapes=True)
+    # keras.utils.plot_model(model, to_file='MONet.png', show_shapes=True)
 
     return model

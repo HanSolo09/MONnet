@@ -17,8 +17,8 @@ from model.Unet import Unet
 from sklearn.preprocessing import LabelEncoder
 
 # imgpath = './data/xiangliu_final/'
-img_dir = './data/vaihingen_final/'
-gt_dir = './data/vaihingen_final/unet_label/'
+img_dir = '/home/ubuntu/data/mcnn_data/vaihingen_final/'
+gt_dir = '/home/ubuntu/data/mcnn_data/vaihingen_final/unet_label/'
 
 n_label = 6
 n_channel = 3
@@ -201,6 +201,7 @@ def train(model_type):
                                 callbacks=callable, max_queue_size=1)
     elif model_type is 'Unet':
         model = Unet(shape=(64, 64, n_channel), n_label=n_label)
+        train_filename=train_filename[::10]
         H = model.fit_generator(generator=generate_data_unet_input(BS, train_filename),
                                 steps_per_epoch=len(train_filename) // BS,
                                 epochs=EPOCHS,

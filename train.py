@@ -8,7 +8,7 @@ from keras.utils.np_utils import to_categorical
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import ReduceLROnPlateau
 
-from model.MCNN import MCNN
+from model.MONet import MONet
 from model.PixelCNN import PixelCNN
 from model.SSRN import SSRN
 from model.SingleCNN import SingleCNN
@@ -143,7 +143,7 @@ def generate_data_multiple_input(batch_size, images, labels):
 
 def train(model_type):
     """
-    :param model_type: 'MCNN', 'PixelCNN', 'SSRN' or 'SingleCNN'
+    :param model_type: 'MONet', 'PixelCNN', 'SSRN' or 'SingleCNN'
     """
     # some callbacks
     modelcheck = ModelCheckpoint(filepath=img_dir + 'weights.hdf5', monitor='val_acc', save_best_only=True, mode='max')
@@ -163,8 +163,8 @@ def train(model_type):
     print("the number of test data is", len(test_filename))
 
     # training
-    if model_type is 'MCNN':
-        model = MCNN((img_h0, img_w0, n_channel), (img_h1, img_w1, n_channel), (img_h2, img_w2, n_channel), n_label)
+    if model_type is 'MONet':
+        model = MONet((img_h0, img_w0, n_channel), (img_h1, img_w1, n_channel), (img_h2, img_w2, n_channel), n_label)
         H = model.fit_generator(generator=generate_data_multiple_input(BS, train_filename, train_label),
                                 steps_per_epoch=len(train_filename) // BS,
                                 epochs=EPOCHS,

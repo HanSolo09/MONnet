@@ -1,4 +1,4 @@
-# MCNN project
+# MONet project
 ## 日志
 
 - 2019/10/24：香流数据集实现0.97训练精度，0.94验证精度。Vaihingen数据集实现0.88训练精度，0.86验证精度。增加ConvLSTM模型。

@@ -1,7 +1,7 @@
 import sys
 sys.path.append('../model/')
 
-from model.MCNN import *
+from model.MONet import *
 from keras.layers import UpSampling2D,MaxPooling2D,Reshape,Permute
 from keras import Sequential
 
@@ -15,7 +15,7 @@ img_w2 = 72
 img_h2 = 72
 
 # 112,481
-mcnn = MCNN((img_h0, img_w0, n_channel), (img_h1, img_w1, n_channel), (img_h2, img_w2, n_channel), n_label)
+monet = MONet((img_h0, img_w0, n_channel), (img_h1, img_w1, n_channel), (img_h2, img_w2, n_channel), n_label)
 
 
 # 182,253

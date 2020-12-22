@@ -1,4 +1,4 @@
-from model.MCNN import *
+from model.MONet import *
 
 
 def SingleCNN(shape, n_label,scale):

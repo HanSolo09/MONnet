@@ -1,4 +1,4 @@
-from model.MCNN import *
+from model.MONet import *
 from keras.layers import UpSampling2D, MaxPooling2D
 
 

@@ -129,7 +129,7 @@ def multiscale_resnet(inputs, scale):
     return x
 
 
-def MCNN(shape0, shape1, shape2, n_label):
+def MONet(shape0, shape1, shape2, n_label):
     input0 = Input(shape=shape0, name='input0')
     input1 = Input(shape=shape1, name='input1')
     input2 = Input(shape=shape2, name='input2')

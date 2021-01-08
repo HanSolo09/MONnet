@@ -38,7 +38,7 @@ class DatasetGenerator(object):
     @staticmethod
     def create(image_path_list, gt_path_list=None, samples_path_list=None):
         """
-        Factory function, return instance if inputs are valid. Inputs should match each other.
+        Factory function, return DatasetGenerator instance if inputs are valid.
         :param image_path_list: list, source image paths
         :param gt_path_list: list, ground truth image paths
         :param samples_path_list: list, sample csv paths
@@ -71,18 +71,19 @@ class DatasetGenerator(object):
 
     def creat_dataset(self, output_dir, num_sample=None):
         """
-        Create dataset from gt or from csv.
+        Create dataset from ground-truth images or from csv labels.
         :param output_dir: output directory
         :param num_sample: number of samples in each image (if create dataset from ground truth images)
-        :return:
         """
+
+        # create folder for multiple inputs
         self.output_dir = output_dir
-        if os.path.isdir(output_dir + '0/') is False:
-            os.mkdir(output_dir + '0/')
-        if os.path.isdir(output_dir + '1/') is False:
-            os.mkdir(output_dir + '1/')
-        if os.path.isdir(output_dir + '2/') is False:
-            os.mkdir(output_dir + '2/')
+        if not os.path.exists(os.path.join(output_dir, '0/')):
+            os.makedirs(os.path.join(output_dir, '0/'))
+        if not os.path.exists(os.path.join(output_dir, '1/')):
+            os.makedirs(os.path.join(output_dir, '1/'))
+        if not os.path.exists(os.path.join(output_dir, '2/')):
+            os.makedirs(os.path.join(output_dir, '2/'))
 
         if self.from_gt is True:
             self.create_from_gt(num_sample=num_sample)
@@ -91,7 +92,7 @@ class DatasetGenerator(object):
             for i in range(len(self.image_path_list)):
                 img_path = self.image_path_list[i]
                 fname = img_path.split('/')[-1]
-                sample_list.append(self.output_dir + fname + '.csv')
+                sample_list.append(os.path.join(self.output_dir, fname + '.csv'))
             self.samples_path_list = sample_list
 
             self.create_from_csv()
@@ -106,7 +107,7 @@ class DatasetGenerator(object):
         :param test_rate: test rate
         """
         print('Spliting dataset...')
-        train_csv = pandas.read_csv(self.output_dir + 'all.csv',
+        train_csv = pandas.read_csv(os.path.join(self.output_dir, 'all.csv'),
                                     names=['image', 'filename', 'row', 'col', 'label', 'is_original'],
                                     header=0)
         train_csv = train_csv.loc[train_csv['is_original'] == 1]
@@ -143,11 +144,11 @@ class DatasetGenerator(object):
         df1 = pandas.DataFrame(
             data={"image": train_image, "filename": train_filename, "row": train_row, "col": train_col,
                   "label": train_label})
-        df1.to_csv(self.output_dir + 'train_list.csv', sep=',', index=False)
+        df1.to_csv(os.path.join(self.output_dir, 'train_list.csv'), sep=',', index=False)
         df2 = pandas.DataFrame(
             data={"image": test_image, "filename": test_filename, "row": test_row, "col": test_col,
                   "label": test_label})
-        df2.to_csv(self.output_dir + 'test_list.csv', sep=',', index=False)
+        df2.to_csv(os.path.join(self.output_dir, 'test_list.csv'), sep=',', index=False)
 
         all_labels = np.unique(label)
         print('Train samples (before augmented)')
@@ -351,7 +352,7 @@ class DatasetGenerator(object):
     def create_from_gt(self, num_sample):
         """
         Create dataset from random samples, use when you already have a ground truth.
-        Note that some sample points may fall into the same object, this will be tackled in  creat_dataset_from_csv function.
+        Note that some sample points may fall into the same object, this will be tackled in creat_dataset_from_csv function.
         Save all.csv and dataset in train folder.
         :param num_sample: number of samples in each image
         :return:
@@ -381,7 +382,7 @@ class DatasetGenerator(object):
 
             df = pandas.DataFrame(data={'label': label_list, 'row': row_list, 'col': col_list})
             fname = img_path.split('/')[-1]
-            df.to_csv(self.output_dir + fname + '.csv', sep=',', index=False)
+            df.to_csv(os.path.join(self.output_dir, fname + '.csv'), sep=',', index=False)
 
     def create_from_csv(self):
         """
@@ -424,9 +425,9 @@ class DatasetGenerator(object):
                 roi1_aug_list = self.data_augment(roi1, self.num_augment)
                 roi2_aug_list = self.data_augment(roi2, self.num_augment)
                 for k in range(len(roi0_aug_list)):
-                    cv2.imwrite(self.output_dir + '0/' + str(count).zfill(7) + '.png', roi0_aug_list[k])
-                    cv2.imwrite(self.output_dir + '1/' + str(count).zfill(7) + '.png', roi1_aug_list[k])
-                    cv2.imwrite(self.output_dir + '2/' + str(count).zfill(7) + '.png', roi2_aug_list[k])
+                    cv2.imwrite(os.path.join(self.output_dir, '0/', str(count).zfill(7) + '.png'), roi0_aug_list[k])
+                    cv2.imwrite(os.path.join(self.output_dir, '1/', str(count).zfill(7) + '.png'), roi1_aug_list[k])
+                    cv2.imwrite(os.path.join(self.output_dir, '2/', str(count).zfill(7) + '.png'), roi2_aug_list[k])
 
                     fname = rgb_path.split('/')[-1]
                     images.append(fname)
@@ -444,7 +445,7 @@ class DatasetGenerator(object):
         # save all.csv
         df = pandas.DataFrame(data={"image": images, "filename": filenames, "row": rows, "col": cols, "label": labels,
                                     "is_original": is_original})
-        df.to_csv(self.output_dir + 'all.csv', sep=',', index=False)
+        df.to_csv(os.path.join(self.output_dir, 'all.csv'), sep=',', index=False)
 
         print('Create dataset done.\n')
 
@@ -480,16 +481,46 @@ if __name__ == '__main__':
     # dataset_gen.creat_dataset(output_dir='./data/train/')
     # dataset_gen.train_test_split(test_rate=0.25)
 
+    # img_path_lst = [
+    #     './data/src/top_mosaic_09cm_area1.tif',
+    #     './data/src/top_mosaic_09cm_area2.tif'
+    # ]
+    #
+    # gt_path_lst = [
+    #     './data/label/top_mosaic_09cm_area1.tif',
+    #     './data/label/top_mosaic_09cm_area2.tif'
+    # ]
+    #
+    # dataset_gen2 = DatasetGenerator.create(image_path_list=img_path_lst, gt_path_list=gt_path_lst)
+    # dataset_gen2.creat_dataset(output_dir='./data/train/', num_sample=8000)
+    # dataset_gen2.train_test_split(test_rate=0.25)
+
     img_path_lst = [
-        './data/src/top_mosaic_09cm_area1.tif',
-        './data/src/top_mosaic_09cm_area2.tif'
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area1.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area2.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area3.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area4.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area5.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area6.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area7.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area8.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area10.tif',
+        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area26.tif'
     ]
 
-    gt_path_lst = [
-        './data/label/top_mosaic_09cm_area1.tif',
-        './data/label/top_mosaic_09cm_area2.tif'
+    samples_path_list = [
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area1.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area2.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area3.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area4.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area5.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area6.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area7.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area8.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area10.tif.csv',
+        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area26.tif.csv'
     ]
 
-    dataset_gen2 = DatasetGenerator.create(image_path_list=img_path_lst, gt_path_list=gt_path_lst)
-    dataset_gen2.creat_dataset(output_dir='./data/train/', num_sample=8000)
-    dataset_gen2.train_test_split(test_rate=0.25)
+    dataset_gen = DatasetGenerator.create(image_path_list=img_path_lst, samples_path_list=samples_path_list)
+    dataset_gen.creat_dataset(output_dir='/home/irsgis/data/MONet_data/train_data')
+    dataset_gen.train_test_split(test_rate=0.25)

@@ -1,6 +1,6 @@
 import sys
 from skimage.segmentation import mark_boundaries
-from gendata import *
+from gen_data import *
 
 sys.path.append('../utils/')
 

@@ -1,4 +1,4 @@
-from gendata import *
+from gen_data import *
 
 csv_dir='/home/ubuntu/data/mcnn_data/vaihingen_final/'
 train_csv = pandas.read_csv(csv_dir + 'all.csv',

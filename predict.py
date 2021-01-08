@@ -2,7 +2,7 @@ import sys
 import datetime
 from skimage import io
 
-from gendata import *
+from gen_data import *
 
 sys.path.append('../utils/')
 from utils import post_processing

@@ -20,7 +20,8 @@ from sklearn.preprocessing import LabelEncoder
 
 train_data_folder = '/home/irsgis/data/MONet_data/train_data'
 output_dir = '/home/irsgis/data/MONet_data/training/20210108'
-# gt_dir = '/home/ubuntu/data/mcnn_data/vaihingen_final/unet_label/'
+
+unet_gt_dir = '/home/ubuntu/data/mcnn_data/vaihingen_final/unet_label/'
 
 n_label = 6
 n_channel = 3
@@ -56,7 +57,7 @@ def generate_data_unet_input(batch_size, images):
             roi = img_to_array(roi)
             train_data.append(roi)
 
-            gt = cv2.imread(os.path.join(gt_dir, url), -1)
+            gt = cv2.imread(os.path.join(unet_gt_dir, url), -1)
             gt = cv2.resize(gt, (64, 64))
             gt = np.array(gt).flatten()
             gt = to_categorical(gt, num_classes=n_label)
@@ -158,7 +159,7 @@ def train(model_type):
     """
 
     # some callbacks
-    modelcheck = ModelCheckpoint(filepath=os.path.join(output_dir, 'weights.hdf5'), monitor='val_acc', save_best_only=True, mode='max')
+    modelcheck = ModelCheckpoint(filepath=os.path.join(output_dir, model_type + '_weights.hdf5'), monitor='val_accuracy', save_best_only=True, mode='max')
     # format="weights-{epoch:02d}-{val_acc:.2f}.hdf5"
     # modelcheck = ModelCheckpoint(filepath=filepath + format, monitor='val_acc', save_best_only=False, mode='max',period=1)
     lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1), cooldown=0, patience=5, min_lr=0.5e-6)
@@ -238,16 +239,16 @@ def train(model_type):
     plt.figure()
     plt.plot(np.arange(0, EPOCHS), H.history["loss"], label="train_loss")
     plt.plot(np.arange(0, EPOCHS), H.history["val_loss"], label="val_loss")
-    plt.plot(np.arange(0, EPOCHS), H.history["acc"], label="train_acc")
-    plt.plot(np.arange(0, EPOCHS), H.history["val_acc"], label="val_acc")
+    plt.plot(np.arange(0, EPOCHS), H.history["accuracy"], label="train_acc")
+    plt.plot(np.arange(0, EPOCHS), H.history["val_accuracy"], label="val_acc")
     plt.title("Training Loss and Accuracy on " + model_type)
     plt.xlabel("Epoch")
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
-    plt.savefig(os.path.join(train_data_folder, "plot.png"))
+    plt.savefig(os.path.join(output_dir, model_type + "plot.png"))
 
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    train(model_type='MONet')
+    train(model_type='MONetv2')

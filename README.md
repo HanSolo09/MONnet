@@ -7,11 +7,11 @@ Recently, deep learning has become the most innovative trend for a variety of hi
 There are some dependencies required by this project:
 
 - Keras 2.3.1
-- OpenCV
-- pandas
-- skimage
-- matplotlib
-- sklearn
+- OpenCV 3.4.2
+- pandas 1.1.5
+- skimage 0.17.2
+- matplotlib 3.3.3
+- sklearn 0.24.0
 
 To install them, simply run:
 
@@ -54,7 +54,7 @@ train_data
 └── train_list.csv
 ```
 
-2. Use `train.py` to train different models.
+2. Use `train.py` to train different models. After the training procedure is finished, the model weight and learning curve will be saved under certain folder.
 
 3. Use `predict.py` to predict the results based on pretrained weights.
 

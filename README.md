@@ -12,6 +12,7 @@ There are some dependencies required by this project:
 - skimage 0.17.2
 - matplotlib 3.3.3
 - sklearn 0.24.0
+- pydensecrf 1.0
 
 To install them, simply run:
 
@@ -25,7 +26,7 @@ conda install tensorflow-gpu cudatoolkit=10.0
 conda install keras
 
 # install other dependencies
-pip install opencv-python pandas scikit-image scikit-learn
+pip install opencv-python pandas scikit-image scikit-learn pydensecrf
 ```
 
 ## Usage

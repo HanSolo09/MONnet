@@ -9,7 +9,7 @@ def draw(img, dataset_type):
     """
     dimging color prediction result according to its dataset type.
     :param img: original prediction image (single channel)
-    :param dataset_type: string type
+    :param dataset_type: dataset type. Should be either 'vaihingen' or 'xiangliu'
     :return: colored prediction image (3 channels)
     """
     row, col = img.shape

@@ -245,7 +245,7 @@ def train(model_type):
     plt.xlabel("Epoch")
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
-    plt.savefig(os.path.join(output_dir, model_type + "plot.png"))
+    plt.savefig(os.path.join(output_dir, model_type + "_plot.png"))
 
 
 if __name__ == '__main__':

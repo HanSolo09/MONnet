@@ -56,8 +56,7 @@ train_data
 ```
 
 2. Use `train.py` to train different models. After the training procedure is finished, the model weight and learning curve will be saved under certain folder.
-
-3. Use `predict.py` to predict the results based on pretrained weights.
+3. Use `predict.py` to predict the results based on pretrained weights. Post-processing and evaluation will also be performed. Please see `predict.py` for more details.
 
 ## Notice
 

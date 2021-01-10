@@ -290,7 +290,7 @@ def do_vote(seg_dir, exclude_labels=[]):
             vote_img[vote_img[:, :] == exclude_label] = 0
             vote_img[img[:, :] == exclude_label] = exclude_label
 
-        cv2.imwrite(os.path.join(output_dir, imgfile + '_pred2.png'), vote_img.astype('uint8'))
+        cv2.imwrite(os.path.join(output_dir, imgfile + '_post_processing.png'), vote_img.astype('uint8'))
 
 
 def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb_bilateral=10):
@@ -301,7 +301,7 @@ def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb
     """
     for imgfile in image_names:
         img_path = os.path.join(input_dir, imgfile)
-        pred_path = os.path.join(output_dir, imgfile + '_pred2.png')
+        pred_path = os.path.join(output_dir, imgfile + '_post_processing.png')
         rgb_img = cv2.imread(img_path)
         pred = cv2.imread(pred_path, -1)
         print("crf " + pred_path)
@@ -313,7 +313,7 @@ def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb
             crf_img[crf_img[:, :] == exclude_label] = 0
             crf_img[pred[:, :] == exclude_label] = exclude_label
 
-        cv2.imwrite(os.path.join(output_dir, imgfile + '_pred2.png'), crf_img)
+        cv2.imwrite(os.path.join(output_dir, imgfile + '_post_processing.png'), crf_img)
 
 
 def do_visualizing(dataset_type):
@@ -322,7 +322,7 @@ def do_visualizing(dataset_type):
     :param dataset_type: dataset type. Should be either 'vaihingen' or 'xiangliu'
     """
     for imgfile in image_names:
-        pred_path = os.path.join(output_dir, imgfile + '_pred2.png')
+        pred_path = os.path.join(output_dir, imgfile + '_post_processing.png')
         pred = cv2.imread(pred_path, -1)
         print("visualizing " + pred_path)
 
@@ -354,7 +354,7 @@ def do_evaluation(csvpath, ignore_zero=False):
     y_pred = []
     y_true = []
     for imagename in lookuptbl:
-        pred_path = os.path.join(output_dir, imagename + '_pred.png')
+        pred_path = os.path.join(output_dir, imagename + '_post_processing.png')
         pred = cv2.imread(pred_path, -1)
 
         rows_cols_labels = lookuptbl[imagename]
@@ -380,7 +380,7 @@ def do_evaluation_v2(labelpath):
     y_pred = []
     y_true = []
     for imgfile in image_names:
-        pred_path = os.path.join(output_dir, imgfile + '_pred2.png')
+        pred_path = os.path.join(output_dir, imgfile + '_post_processing.png')
         pred = cv2.imread(pred_path, -1)
         temp = np.reshape(pred, (-1, 1))
         temp = temp[:, 0]
@@ -401,7 +401,7 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     # predict
-    predict_multi_input(modelpath='/home/irsgis/data/MONet_data/vaihingen_final/vaihingen_results/mcnn/weights.hdf5', batch_size=256)
+    predict_multi_input(modelpath='/home/irsgis/data/MONet_data/training/20210109/MONet_weights.hdf5', batch_size=256)
     # predict_single_input(modelpath='./data/vaihingen_final/singleCNN_level0/weights.hdf5',batch_size=256)
     # predict_patch_input(modelpath='./data/vaihingen_final/pixelCNN/weights.hdf5',input3D=False, batch_size=256)
     # predict_unet_input(modelpath='/home/ubuntu/data/mcnn_data/vaihingen_final/vaihingen_results/unet/weights.hdf5')

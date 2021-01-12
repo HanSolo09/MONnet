@@ -2,25 +2,48 @@ import cv2
 import random
 import pandas
 import os
-from os import path
-from skimage import segmentation
-from skimage.measure import regionprops
-from numpy import expand_dims
+import sys
+import argparse
 import numpy as np
+from numpy import expand_dims
 
+from skimage.measure import regionprops
 from keras.preprocessing.image import ImageDataGenerator
+
+sys.path.append('../utils/')
+from utils import monet_segmentation
+
+img_w0 = 24
+img_h0 = 24
+img_w1 = 48
+img_h1 = 48
+img_w2 = 72
+img_h2 = 72
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description='MONet data generation')
+    parser.add_argument('--seg_method',
+                        default='quickshift', type=str,
+                        help='Segmentation method used when training and prediction')
+    parser.add_argument('--output_dir',
+                        default='/home/guojinhui/data/MONet_data/slic_train_data', type=str,
+                        help='Directory used to save the generated training data')
+
+    global args
+    args = parser.parse_args(argv)
+    for arg in vars(args):
+        print(arg, getattr(args, arg))
+
+    if not os.path.exists(args.output_dir):
+        print(args.output_dir + ' not exists, making new directory')
+        os.makedirs(args.output_dir)
 
 
 class DatasetGenerator(object):
     """Dataset generator object"""
 
     num_augment = 10
-    img_w0 = 24
-    img_h0 = 24
-    img_w1 = 48
-    img_h1 = 48
-    img_w2 = 72
-    img_h2 = 72
     seed = 1
     datagen = ImageDataGenerator(brightness_range=[0.3, 1.2],
                                  rotation_range=40,
@@ -176,7 +199,7 @@ class DatasetGenerator(object):
         :param col: sample col index
         :return: 3 scale roi images
         """
-        seg_id = seg[row, col] - 1
+        seg_id = seg[row, col] - 1  # seg start from 1 here
 
         bbox = props[seg_id].bbox
         min_row = bbox[0]
@@ -333,21 +356,15 @@ class DatasetGenerator(object):
             return sub_img_2
 
     @staticmethod
-    def segmentation(image_path, kernel_size=3, max_dist=6, ratio=0.5):
-        """
-        Quickshift superpixels segmentation.
-        If previous segmentation result already exist in current folder, load it directly.
-        :return: segmentation object
-        """
-        rgb_img = cv2.imread(image_path)
-        seg_path = image_path + '_seg.npy'
-        if path.exists(seg_path):
-            seg = np.load(seg_path)
+    def segmentation(image_path, seg_method):
+        if seg_method == 'quickshift':
+            return monet_segmentation.quickshift(image_path)
+        elif seg_method == 'slic':
+            return monet_segmentation.slic(image_path)
+        elif seg_method == 'watershed':
+            return monet_segmentation.watershed(image_path)
         else:
-            seg = segmentation.quickshift(rgb_img, kernel_size=kernel_size, max_dist=max_dist, ratio=ratio)
-            np.save(seg_path, seg)
-
-        return seg
+            raise ValueError('Segmentation method not exists\n')
 
     def create_from_gt(self, num_sample):
         """
@@ -405,9 +422,9 @@ class DatasetGenerator(object):
             collist = csv.col.tolist()
             labellist = csv.label.tolist()
 
-            seg = self.segmentation(image_path=rgb_path)
-            seg = seg + 1
+            seg = self.segmentation(image_path=rgb_path, seg_method=args.seg_method)
             props = regionprops(seg)
+            assert (seg.min() == 1 and len(np.unique(seg)) == len(props))
 
             for j in range(len(rowlist)):
                 row_j = int(rowlist[j])
@@ -416,9 +433,9 @@ class DatasetGenerator(object):
 
                 roi0, roi1, roi2 = self.create_multiscale_roi(rgb_img, seg, props, row_j, col_j)
 
-                roi0 = cv2.resize(roi0, (self.img_h0, self.img_w0))
-                roi1 = cv2.resize(roi1, (self.img_h1, self.img_w1))
-                roi2 = cv2.resize(roi2, (self.img_h2, self.img_w2))
+                roi0 = cv2.resize(roi0, (img_h0, img_w0))
+                roi1 = cv2.resize(roi1, (img_h1, img_w1))
+                roi2 = cv2.resize(roi2, (img_h2, img_w2))
 
                 # data augmentation
                 roi0_aug_list = self.data_augment(roi0, self.num_augment)
@@ -451,35 +468,7 @@ class DatasetGenerator(object):
 
 
 if __name__ == '__main__':
-    # image_path_list = [
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/2.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/3.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/8.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/9.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/14.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/16.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/20.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/22.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/26.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/28.tif',
-    #     '/home/ubuntu/Desktop/xiangliu/data/patch2/33.tif'
-    # ]
-    # samples_path_list = [
-    #     '/home/ubuntu/Desktop/xiangliu/csv/2.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/3.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/8.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/9.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/14.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/16.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/20.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/22.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/26.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/28.tif.csv',
-    #     '/home/ubuntu/Desktop/xiangliu/csv/33.tif.csv'
-    # ]
-    # dataset_gen = DatasetGenerator.create(image_path_list=image_path_list, samples_path_list=samples_path_list)
-    # dataset_gen.creat_dataset(output_dir='./data/train/')
-    # dataset_gen.train_test_split(test_rate=0.25)
+    parse_args()
 
     # img_path_lst = [
     #     './data/src/top_mosaic_09cm_area1.tif',
@@ -495,32 +484,62 @@ if __name__ == '__main__':
     # dataset_gen2.creat_dataset(output_dir='./data/train/', num_sample=8000)
     # dataset_gen2.train_test_split(test_rate=0.25)
 
+    # img_path_lst = [
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area1.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area2.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area3.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area4.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area5.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area6.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area7.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area8.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area10.tif',
+    #     '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area26.tif'
+    # ]
+    #
+    # samples_path_list = [
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area1.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area2.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area3.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area4.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area5.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area6.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area7.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area8.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area10.tif.csv',
+    #     '/home/irsgis/data/MONet_data/label/vai_csv/top_mosaic_09cm_area26.tif.csv'
+    # ]
+    #
+    # dataset_gen = DatasetGenerator.create(image_path_list=img_path_lst, samples_path_list=samples_path_list)
+    # dataset_gen.creat_dataset(output_dir=args.output_dir)
+    # dataset_gen.train_test_split(test_rate=0.25)
+
     img_path_lst = [
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area1.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area2.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area3.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area4.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area5.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area6.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area7.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area8.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area10.tif',
-        '/home/irsgis/data/MONet_data/image/top_mosaic_09cm_area26.tif'
+        '/home/guojinhui/data/MONet_data/image/2.tif',
+        '/home/guojinhui/data/MONet_data/image/3.tif',
+        '/home/guojinhui/data/MONet_data/image/8.tif',
+        '/home/guojinhui/data/MONet_data/image/9.tif',
+        '/home/guojinhui/data/MONet_data/image/14.tif',
+        '/home/guojinhui/data/MONet_data/image/16.tif',
+        '/home/guojinhui/data/MONet_data/image/20.tif',
+        '/home/guojinhui/data/MONet_data/image/22.tif',
+        '/home/guojinhui/data/MONet_data/image/26.tif',
+        '/home/guojinhui/data/MONet_data/image/28.tif',
+        '/home/guojinhui/data/MONet_data/image/33.tif'
     ]
-
     samples_path_list = [
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area1.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area2.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area3.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area4.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area5.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area6.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area7.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area8.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area10.tif.csv',
-        '/home/irsgis/data/MONet_data/label/csv/top_mosaic_09cm_area26.tif.csv'
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/2.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/3.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/8.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/9.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/14.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/16.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/20.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/22.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/26.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/28.tif.csv',
+        '/home/guojinhui/data/MONet_data/label/xiangliu_csv/33.tif.csv'
     ]
-
     dataset_gen = DatasetGenerator.create(image_path_list=img_path_lst, samples_path_list=samples_path_list)
-    dataset_gen.creat_dataset(output_dir='/home/irsgis/data/MONet_data/train_data')
-    dataset_gen.train_test_split(test_rate=0.25)
+    dataset_gen.creat_dataset(output_dir=args.output_dir)
+    # dataset_gen.train_test_split(test_rate=0.25)

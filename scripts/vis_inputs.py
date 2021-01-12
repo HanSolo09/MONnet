@@ -31,7 +31,7 @@ rows, cols, _ = rgb_img.shape
 print("process " + filepath)
 print("rows " + str(rows) + " , cols " + str(cols))
 
-seg = DatasetGenerator.segmentation(image_path=filepath)
+seg = DatasetGenerator.segmentation_quickshift(image_path=filepath)
 seg = seg + 1
 
 # slice a ROI

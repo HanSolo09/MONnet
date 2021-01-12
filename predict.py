@@ -1,5 +1,6 @@
 import sys
 import datetime
+import argparse
 from skimage import io
 from keras.models import load_model
 
@@ -10,32 +11,29 @@ from utils import post_processing
 from utils import evaluation
 
 image_names = [
-    'top_mosaic_09cm_area1.tif',
-    'top_mosaic_09cm_area2.tif',
-    'top_mosaic_09cm_area3.tif',
-    'top_mosaic_09cm_area4.tif',
-    'top_mosaic_09cm_area5.tif',
-    'top_mosaic_09cm_area6.tif',
-    'top_mosaic_09cm_area7.tif',
-    'top_mosaic_09cm_area8.tif',
-    'top_mosaic_09cm_area10.tif',
-    'top_mosaic_09cm_area26.tif'
+    # 'top_mosaic_09cm_area1.tif',
+    # 'top_mosaic_09cm_area2.tif',
+    # 'top_mosaic_09cm_area3.tif',
+    # 'top_mosaic_09cm_area4.tif',
+    # 'top_mosaic_09cm_area5.tif',
+    # 'top_mosaic_09cm_area6.tif',
+    # 'top_mosaic_09cm_area7.tif',
+    # 'top_mosaic_09cm_area8.tif',
+    # 'top_mosaic_09cm_area10.tif',
+    # 'top_mosaic_09cm_area26.tif'
 
-    # '2.tif',
-    # '3.tif',
-    # '8.tif',
-    # '9.tif',
-    # '14.tif',
-    # '16.tif',
-    # '20.tif',
-    # '22.tif',
-    # '26.tif',
-    # '28.tif',
-    # '33.tif'
+    '2.tif',
+    '3.tif',
+    '8.tif',
+    '9.tif',
+    '14.tif',
+    '16.tif',
+    '20.tif',
+    '22.tif',
+    '26.tif',
+    '28.tif',
+    '33.tif'
 ]
-
-input_dir = '/home/irsgis/data/MONet_data/image'
-output_dir = '/home/irsgis/data/MONet_data/training/20210109'
 
 img_w0 = 24
 img_h0 = 24
@@ -43,6 +41,43 @@ img_w1 = 48
 img_h1 = 48
 img_w2 = 72
 img_h2 = 72
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description='MONet Evaluation')
+    parser.add_argument('--trained_model',
+                        default='/home/irsgis/data/MONet_data/training/20210111_concat/weights.hdf5', type=str,
+                        help='Trained model weights')
+    parser.add_argument('--image_dir',
+                        default='/home/irsgis/data/MONet_data/image', type=str,
+                        help='Input image directory')
+    parser.add_argument('--dataset_type',
+                        default='vaihingen', type=str,
+                        help='Dataset type should be vaihingen or xiangliu')
+    parser.add_argument('--output_dir',
+                        default='/home/irsgis/data/MONet_data/training/20210111_concat', type=str,
+                        help='Directory used to save prediction and evaluation results')
+    parser.add_argument('--seg_dir',
+                        default='/home/irsgis/data/MONet_data/optimizing', type=str,
+                        help='Directory contains segmentation images, which are used to do post-processing')
+    parser.add_argument('--evaluation_path',
+                        default='/home/irsgis/data/MONet_data/train_data/test_list.csv', type=str,
+                        help='Path to a csv file used to evaluation')
+    parser.add_argument('--seg_method',
+                        default='quickshift', type=str,
+                        help='Segmentation method used when training and prediction')
+    parser.add_argument('--cuda_visible_devices',
+                        default='0', type=str,
+                        help='GPU used when training and prediction')
+
+    global args
+    args = parser.parse_args(argv)
+    for arg in vars(args):
+        print(arg, getattr(args, arg))
+
+    if not os.path.exists(args.output_dir):
+        print(args.output_dir + ' not exists, making new directory')
+        os.makedirs(args.output_dir)
 
 
 def predict_unet_input(modelpath):
@@ -53,7 +88,7 @@ def predict_unet_input(modelpath):
     model = load_model(modelpath)
     for i in range(len(image_names)):
         # load test image
-        filepath = os.path.join(input_dir, image_names[i])
+        filepath = os.path.join(args.image_dir, image_names[i])
         rgb_img = cv2.imread(filepath)
         print("predicting " + filepath)
         starttime = datetime.datetime.now()
@@ -77,7 +112,7 @@ def predict_unet_input(modelpath):
 
                 res[r:min(r + 64, rows - 1), c:min(c + 64, cols - 1)] = pred[:, :]
 
-        cv2.imwrite(os.path.join(output_dir, image_names[i] + '_pred.png'), res)
+        cv2.imwrite(os.path.join(args.output_dir, image_names[i] + '_pred.png'), res)
         print(image_names[i] + '_pred.png is saved!')
         endtime = datetime.datetime.now()
         print('processing time: ')
@@ -96,7 +131,7 @@ def predict_patch_input(modelpath, input3D=False, batch_size=64):
     model = load_model(modelpath)
     for i in range(len(image_names)):
         # load test image
-        filepath = os.path.join(input_dir, image_names[i])
+        filepath = os.path.join(args.image_dir, image_names[i])
         print("predicting " + filepath)
         starttime = datetime.datetime.now()
         rgb_img = cv2.imread(filepath)
@@ -132,14 +167,14 @@ def predict_patch_input(modelpath, input3D=False, batch_size=64):
                     rois = []
                     rows_cols = []
 
-        cv2.imwrite(os.path.join(output_dir, image_names[i] + '_pred.png'), res)
+        cv2.imwrite(os.path.join(args.output_dir, image_names[i] + '_pred.png'), res)
         print(image_names[i] + '_pred.png is saved!')
         endtime = datetime.datetime.now()
         print('processing time: ')
         print(endtime - starttime)
 
 
-def predict_single_input(modelpath, batch_size=64):
+def predict_single_input(modelpath, batch_size=64, seg_method='quickshift'):
     """
     Predicting images based on trained network weights, single object input.
     :param modelpath: file path to model weights
@@ -150,15 +185,14 @@ def predict_single_input(modelpath, batch_size=64):
     model = load_model(modelpath)
     for i in range(len(image_names)):
         # load test image
-        filepath = os.path.join(input_dir, image_names[i])
+        filepath = os.path.join(args.image_dir, image_names[i])
         print("predicting " + filepath)
         starttime = datetime.datetime.now()
         rgb_img = cv2.imread(filepath)
 
         rows, cols, _ = rgb_img.shape
 
-        seg = DatasetGenerator.segmentation(image_path=filepath)
-        seg = seg + 1
+        seg = DatasetGenerator.segmentation(image_path=filepath, seg_method=seg_method)
         props = regionprops(seg)
 
         res = np.zeros((rows, cols, 1), np.uint8)
@@ -191,7 +225,7 @@ def predict_single_input(modelpath, batch_size=64):
                 coord_list = []
                 counter = 0
 
-        cv2.imwrite(os.path.join(output_dir, image_names[i] + '_pred.png'), res)
+        cv2.imwrite(os.path.join(args.output_dir, image_names[i] + '_pred.png'), res)
         print(image_names[i] + '_pred.png is saved!')
         endtime = datetime.datetime.now()
         print('processing time: ')
@@ -209,15 +243,14 @@ def predict_multi_input(modelpath, batch_size=64):
     model = load_model(modelpath)
     for i in range(len(image_names)):
         # load test image
-        filepath = os.path.join(input_dir, image_names[i])
+        filepath = os.path.join(args.image_dir, image_names[i])
         print("predicting " + filepath)
         starttime = datetime.datetime.now()
         rgb_img = cv2.imread(filepath)
 
         row, col, _ = rgb_img.shape
 
-        seg = DatasetGenerator.segmentation(image_path=filepath)
-        seg = seg + 1
+        seg = DatasetGenerator.segmentation(image_path=filepath, seg_method=args.seg_method)
         props = regionprops(seg)
 
         res = np.zeros((row, col, 1), np.uint8)
@@ -258,7 +291,7 @@ def predict_multi_input(modelpath, batch_size=64):
                 coord_list = []
                 counter = 0
 
-        cv2.imwrite(os.path.join(output_dir, image_names[i] + '_pred.png'), res)
+        cv2.imwrite(os.path.join(args.output_dir, image_names[i] + '_pred.png'), res)
         print(image_names[i] + '_pred.png is saved!')
         endtime = datetime.datetime.now()
         print('processing time: ')
@@ -274,7 +307,7 @@ def do_vote(seg_dir, exclude_labels=[]):
     """
     for imgfile in image_names:
         seg_path = os.path.join(seg_dir, imgfile)
-        pred_path = os.path.join(output_dir, imgfile + '_pred.png')
+        pred_path = os.path.join(args.output_dir, imgfile + '_pred.png')
         seg = io.imread(seg_path)  # should use skimage for io
         img = cv2.imread(pred_path, -1)
         print("voting " + pred_path)
@@ -290,7 +323,7 @@ def do_vote(seg_dir, exclude_labels=[]):
             vote_img[vote_img[:, :] == exclude_label] = 0
             vote_img[img[:, :] == exclude_label] = exclude_label
 
-        cv2.imwrite(os.path.join(output_dir, imgfile + '_post_processing.png'), vote_img.astype('uint8'))
+        cv2.imwrite(os.path.join(args.output_dir, imgfile + '_post_processing.png'), vote_img.astype('uint8'))
 
 
 def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb_bilateral=10):
@@ -300,8 +333,8 @@ def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb
            Since post-processing may cause some small objects like cars being filtered out.
     """
     for imgfile in image_names:
-        img_path = os.path.join(input_dir, imgfile)
-        pred_path = os.path.join(output_dir, imgfile + '_post_processing.png')
+        img_path = os.path.join(args.image_dir, imgfile)
+        pred_path = os.path.join(args.output_dir, imgfile + '_post_processing.png')
         rgb_img = cv2.imread(img_path)
         pred = cv2.imread(pred_path, -1)
         print("crf " + pred_path)
@@ -313,7 +346,7 @@ def do_crf(exclude_labels=[], gt_prob=.9, sxy_gaussian=3, sxy_bilateral=60, srgb
             crf_img[crf_img[:, :] == exclude_label] = 0
             crf_img[pred[:, :] == exclude_label] = exclude_label
 
-        cv2.imwrite(os.path.join(output_dir, imgfile + '_post_processing.png'), crf_img)
+        cv2.imwrite(os.path.join(args.output_dir, imgfile + '_post_processing.png'), crf_img)
 
 
 def do_visualizing(dataset_type):
@@ -322,11 +355,11 @@ def do_visualizing(dataset_type):
     :param dataset_type: dataset type. Should be either 'vaihingen' or 'xiangliu'
     """
     for imgfile in image_names:
-        pred_path = os.path.join(output_dir, imgfile + '_post_processing.png')
+        pred_path = os.path.join(args.output_dir, imgfile + '_post_processing.png')
         pred = cv2.imread(pred_path, -1)
         print("visualizing " + pred_path)
 
-        cv2.imwrite(os.path.join(output_dir, imgfile + '_vis.png'), post_processing.draw(pred, dataset_type))
+        cv2.imwrite(os.path.join(args.output_dir, imgfile + '_vis.png'), post_processing.draw(pred, dataset_type))
 
 
 def do_evaluation(csvpath, ignore_zero=False):
@@ -354,7 +387,7 @@ def do_evaluation(csvpath, ignore_zero=False):
     y_pred = []
     y_true = []
     for imagename in lookuptbl:
-        pred_path = os.path.join(output_dir, imagename + '_post_processing.png')
+        pred_path = os.path.join(args.output_dir, imagename + '_post_processing.png')
         pred = cv2.imread(pred_path, -1)
 
         rows_cols_labels = lookuptbl[imagename]
@@ -380,7 +413,7 @@ def do_evaluation_v2(labelpath):
     y_pred = []
     y_true = []
     for imgfile in image_names:
-        pred_path = os.path.join(output_dir, imgfile + '_post_processing.png')
+        pred_path = os.path.join(args.output_dir, imgfile + '_post_processing.png')
         pred = cv2.imread(pred_path, -1)
         temp = np.reshape(pred, (-1, 1))
         temp = temp[:, 0]
@@ -398,22 +431,26 @@ def do_evaluation_v2(labelpath):
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    parse_args()
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
 
     # predict
-    predict_multi_input(modelpath='/home/irsgis/data/MONet_data/training/20210109/MONet_weights.hdf5', batch_size=256)
+    predict_multi_input(modelpath=args.trained_model, batch_size=256)
     # predict_single_input(modelpath='./data/vaihingen_final/singleCNN_level0/weights.hdf5',batch_size=256)
     # predict_patch_input(modelpath='./data/vaihingen_final/pixelCNN/weights.hdf5',input3D=False, batch_size=256)
     # predict_unet_input(modelpath='/home/ubuntu/data/mcnn_data/vaihingen_final/vaihingen_results/unet/weights.hdf5')
 
-    # post processing
-    do_vote(seg_dir='/home/irsgis/data/MONet_data/optimizing', exclude_labels=[3])
-    do_crf(exclude_labels=[3])
-
-    do_visualizing(dataset_type='vaihingen')
-
-    # evaluation
-    do_evaluation('/home/irsgis/data/MONet_data/train_data/test_list.csv', ignore_zero=False)
+    # post-processing and evaluation
+    if args.dataset_type is 'vaihingen':
+        do_vote(seg_dir=args.seg_dir, exclude_labels=[3])
+        do_crf(exclude_labels=[3])
+        do_visualizing(dataset_type='vaihingen')
+        do_evaluation(args.evaluation_path, ignore_zero=False)
+    elif args.dataset_type is 'xiangliu':
+        do_vote(seg_dir=args.seg_dir)
+        do_crf()
+        do_visualizing(dataset_type='xiangliu')
+        do_evaluation(args.evaluation_path, ignore_zero=True)
 
     # mIoU evaluation
     # do_evaluation_v2('./data/label/')

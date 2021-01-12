@@ -31,7 +31,7 @@ pip install opencv-python pandas scikit-image scikit-learn pydensecrf
 
 ## Usage
 
-1. Use `gen_data.py` to generate multiple inputs for model training. See `gen_data.py` for more details. The generated training data folder should be like this:
+1. Use `gen_data.py` to generate multiple inputs for model training. See `python gen_data.py --help` for more details. The generated training data folder should be like this:
 
 ```bash
 train_data
@@ -55,8 +55,8 @@ train_data
 └── train_list.csv
 ```
 
-2. Use `train.py` to train different models. After the training procedure is finished, the model weight and learning curve will be saved under certain folder.
-3. Use `predict.py` to predict the results based on pretrained weights. Post-processing and evaluation will also be performed. Please see `predict.py` for more details.
+2. Use `train.py` to train different models. See `python train.py --help` for more details. After the training procedure is finished, the model weight and learning curve will be saved under certain folder.
+3. Use `predict.py` to predict the results based on pretrained weights. Post-processing and evaluation will also be performed. Please see `python predict.py --help` for more details.
 
 ## Notice
 

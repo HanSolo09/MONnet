@@ -48,7 +48,6 @@ model = CatBoostClassifier(iterations=1000, depth = 2, learning_rate=0.1, loss_f
 #                           learning_rate=0.1, max_depth=6,
 #                           gamma = 0.1, n_estimators= 160)
 
-
 model.fit(vector, label)
 print('train_over')
 

@@ -35,7 +35,7 @@ for i in range(len(image_sets)):
 
     rows, cols, _ = rgb_img.shape
 
-    seg = DatasetGenerator.segmentation(image_path=imgpath)
+    seg = DatasetGenerator.segmentation_quickshift(image_path=imgpath)
     seg = seg + 1
     props = regionprops(seg)
 

@@ -441,12 +441,12 @@ if __name__ == '__main__':
     # predict_unet_input(modelpath='/home/ubuntu/data/mcnn_data/vaihingen_final/vaihingen_results/unet/weights.hdf5')
 
     # post-processing and evaluation
-    if args.dataset_type is 'vaihingen':
+    if args.dataset_type == 'vaihingen':
         do_vote(seg_dir=args.seg_dir, exclude_labels=[3])
         do_crf(exclude_labels=[3])
         do_visualizing(dataset_type='vaihingen')
         do_evaluation(args.evaluation_path, ignore_zero=False)
-    elif args.dataset_type is 'xiangliu':
+    elif args.dataset_type == 'xiangliu':
         do_vote(seg_dir=args.seg_dir)
         do_crf()
         do_visualizing(dataset_type='xiangliu')

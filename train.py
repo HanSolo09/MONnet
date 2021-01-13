@@ -42,15 +42,15 @@ def parse_args(argv=None):
     parser.add_argument('--output_dir',
                         default='/home/guojinhui/data/MONet_data/training/20210111', type=str,
                         help='Directory used to save model weights')
-    parser.add_argument('--cuda_visible_devices',
-                        default='0', type=str,
-                        help='GPU used when training and prediction')
     parser.add_argument('--epochs',
                         default=64, type=int,
                         help='Training epochs')
     parser.add_argument('--batch_size',
                         default=128, type=int,
                         help='Batch size')
+    parser.add_argument('--cuda_visible_devices',
+                        default='0', type=str,
+                        help='GPU used when training and prediction')
 
     global args
     args = parser.parse_args(argv)
